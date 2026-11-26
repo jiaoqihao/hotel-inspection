@@ -27,7 +27,7 @@ def database():
 def migrate():
     with database() as db:
         version = db.execute("PRAGMA user_version").fetchone()[0]
-        if version > 4:
+        if version > 5:
             raise RuntimeError("门店数据版本高于本程序")
         if version == 0:
             sql = Path(__file__).with_name("migrations") / "001_platform.sql"
@@ -40,4 +40,7 @@ def migrate():
             db.executescript(sql.read_text(encoding="utf-8"))
         if version < 4:
             sql = Path(__file__).with_name("migrations") / "004_phone_desk.sql"
+            db.executescript(sql.read_text(encoding="utf-8"))
+        if version < 5:
+            sql = Path(__file__).with_name("migrations") / "005_agent.sql"
             db.executescript(sql.read_text(encoding="utf-8"))

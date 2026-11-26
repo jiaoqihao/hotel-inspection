@@ -1,6 +1,7 @@
 import BadgeWecom from './BadgeWecom';
 import {ScriptRules} from './BadgeScripts';
 import RecordingManager from './RecordingManager';
+import Agent from './Agent';
 import BadgeFilters from './BadgeFilters';
 import BadgeDevices, {type Registry,type Unit} from './BadgeSync';
 import React, { useEffect, useRef, useState } from 'react';
@@ -27,12 +28,13 @@ const scenes = ['自动识别','餐厅服务','销售沟通','会议'];
 const navs = [
   {id:'dashboard',name:'门店工作台',icon:'grid'}, {id:'vision',name:'摄像头巡检',icon:'camera'},
   {id:'badge',name:'挂牌与胸牌语音',icon:'audio'}, {id:'phone',name:'前台电话',icon:'phone'},
-  {id:'reports',name:'运营报表',icon:'chart'}, {id:'settings',name:'系统设置',icon:'gear'}
+  {id:'reports',name:'运营报表',icon:'chart'}, {id:'settings',name:'系统设置',icon:'gear'}, {id:'ai',name:'AI 分析',icon:'chat'}
 ];
 const time = (v=0) => `${Math.floor(v/60).toString().padStart(2,'0')}:${Math.floor(v%60).toString().padStart(2,'0')}`;
 const date = (v:string) => new Date(v).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 function Icon({name,size=20}: {name:string;size?:number}) {
   const paths:Record<string,React.ReactNode> = {
+    chat:<><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-6 4V5a1 1 0 0 1 1-1Z"/><path d="M7 9h10M7 13h6"/></>,
     camera:<><rect x="2" y="6" width="14" height="12" rx="3"/><path d="m16 10 5-3v10l-5-3"/></>,
     phone:<path d="M7 3H4a1 1 0 0 0-1 1c0 9 8 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a16 16 0 0 1-7-7l2-2Z"/>,
     chart:<><path d="M4 3v17h17M8 15v-4m5 4V7m5 8v-6"/></>,
@@ -76,7 +78,12 @@ function App({user,store}:{user:User;store:boolean}){
   const [reviewNote,setReviewNote]=useState('');
   const [pendingBadge,setPendingBadge]=useState(false);
   const [cameraFilter,setCameraFilter]=useState(false);
-  const [page,setPage]=useState(phone && /^#phone(?:$|[/?])/.test(window.location.hash) ? 'phone' : quality && window.location.hash.startsWith('#vision') ? 'vision' : quality && window.location.hash==='#patrol'?'patrol':quality && window.location.hash==='#badge'?'badge':'dashboard');
+  const [page,setPage]=useState(/^#ai(?:$|\/)/.test(location.hash) ? 'ai' : phone && /^#phone(?:$|[/?])/.test(window.location.hash) ? 'phone' : quality && window.location.hash.startsWith('#vision') ? 'vision' : quality && window.location.hash==='#patrol'?'patrol':quality && window.location.hash==='#badge'?'badge':'dashboard');
+  useEffect(()=>{
+    if(page==='ai'&&!/^#ai(?:$|\/)/.test(location.hash)) history.replaceState(null,'','#ai');
+    if(page!=='ai'&&/^#ai(?:$|\/)/.test(location.hash)) history.replaceState(null,'',location.pathname+location.search);
+  },[page]);
+  useEffect(()=>{const changed=()=>{if(/^#ai(?:$|\/)/.test(location.hash))setPage('ai')};window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[]);
   useEffect(()=>{if(!['phone','phone-report','orders','pending','overdue','duty'].includes(page)&&/^#phone(?:$|[/?])/.test(window.location.hash))window.history.replaceState(null,'',window.location.pathname+window.location.search+(page==='vision'?'#vision':page==='patrol'?'#patrol':''))},[page]);
 
   const [recordsVisit,setRecordsVisit]=useState(0);
@@ -253,6 +260,7 @@ function App({user,store}:{user:User;store:boolean}){
     <aside className="sidebar"><div className="brand"><span className="brand-mark inn-mark" aria-hidden="true"><i/><i/><i/></span><div><strong>栖鉴</strong><small>酒店智能巡检与服务分析</small></div></div><nav>{navs.filter(n=>!(['vision','badge'].includes(n.id)&&!quality)&&!(n.id==='phone'&&!phone)&&!(n.id==='settings'&&!supervise)).map(n=><button key={n.id} aria-current={activeModule===n.id?'page':undefined} className={activeModule===n.id?'nav-item active':'nav-item'} onClick={()=>{setPendingBadge(false);setCameraFilter(false);setPage(n.id)}}><Icon name={n.icon}/>{n.name}</button>)}</nav><div className="sidebar-bottom"><p>{user.name} · {user.role}</p>{store&&<button onClick={async()=>{await request('api/session/logout',{method:'POST'});location.reload()}}>退出登录</button>}</div></aside>
     <div className="main-shell"><header className="topbar"><div className="breadcrumb">酒店质检 <span>/</span> <strong>{[...navs,{id:'import',name:'导入录音'},{id:'customers',name:'客户档案'},{id:'records',name:'挂牌与胸牌录音档案'},{id:'wecom',name:'企微连接'},{id:'standards',name:'服务标准'},{id:'tasks',name:'改进待办'},{id:'patrol',name:'摄像头巡检'},{id:'duty',name:'电话值班'},{id:'phone-report',name:'电话运营分析'},{id:'pending',name:'待确认电话事项'},{id:'overdue',name:'超时工单'}].find(n=>n.id===page)?.name}</strong></div><div className="top-right"><span className={`connection ${connected?'':'offline'}`}><i/>{connected?'本地服务已连接':'正在连接本地服务'}</span><span className="top-divider"/><span className="today">{new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'})}</span></div></header>
     <main>
+      {page==='ai'&&<Agent token={health?.token||''}/>}
       {(page==='dashboard'||page==='reports')&&<Overview quality={quality} phone={phone} phoneReport={phone&&!['部门员工','质检员'].includes(user.role)} report={page==='reports'} navigate={target=>{
         setPendingBadge(target==='records');if(target==='records'){setDeviceScope('全部设备');setUnitScope('');setFilter('全部场景');setQuery('')}setCameraFilter(target==='vision-pending');setPage(target==='vision-pending'?'vision':target)
       }}/>}

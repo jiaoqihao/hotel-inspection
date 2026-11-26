@@ -134,7 +134,7 @@ def prepare_record(connection, edit_record, item):
                 latest.setdefault("scriptChecks", {}).setdefault(version, rows)
 
 
-def selected_records(db, day):
+def selected_records(db, day, *, include_history=False, test=False):
     # Scan metadata only; transcripts are fetched for the chosen recording date.
     fields = ("sourceId", "source", "recordedAt", "status", "test", "wasMarkedTest", "reviewed")
     query = "SELECT id," + ",".join("data->>'$." + f + "' AS " + f for f in fields)
@@ -146,7 +146,7 @@ def selected_records(db, day):
     }
     chosen, undated = {}, set()
     for key, row in rows.items():
-        if row["source"] not in ("挂牌", "胸牌"):
+        if not include_history and row["source"] not in ("挂牌", "胸牌"):
             continue
         lineage, root = set(), key
         while root in rows and root not in lineage:
@@ -155,10 +155,11 @@ def selected_records(db, day):
             if not parent:
                 break
             root = parent
-        if any(
+        marked_test = any(
             rows[p]["test"] or rows[p]["wasMarkedTest"] or rows[p]["sceneSource"] == "转写明示"
             for p in lineage
-        ):
+        )
+        if marked_test != test:
             continue
         stamp = recording_time(row["recordedAt"])
         if not stamp:

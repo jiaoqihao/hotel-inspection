@@ -116,6 +116,10 @@ async def lifespan(app):
     repair_gesture_times(scheduler)
     app.state.patrol = scheduler
     migrate()
+    with database() as db:
+        db.execute("UPDATE agent_messages SET state='interrupted' WHERE state='running'")
+        db.execute("""UPDATE agent_calls SET state='interrupted',result=?
+            WHERE state='running'""",(json.dumps({"error":"服务重启，执行结果待核对。请查阅业务记录。"},ensure_ascii=False),))
     phones = PhoneWorker()
     app.state.phones=phones
     phones.start()
@@ -159,6 +163,9 @@ def ping():
 
 @app.middleware('http')
 async def local_boundary(request: Request, call_next):
+    # This ASGI scope value is set only by the authenticated agent dispatcher.
+    if "hotel.agent_actor" in request.scope:
+        return await call_next(request)
     # Reject cross-site writes and DNS-rebinding. API operations require a per-process token.
     path = request.url.path
     writing = request.method not in ('GET','HEAD','OPTIONS')
@@ -473,6 +480,8 @@ def audio(id: str):
     item = record(id)
     preview = AUDIO / (id + '.play.wav')
     path = preview if preview.exists() else AUDIO / (id + item['extension'])
+    if not path.is_file():
+        raise HTTPException(404,'本机录音文件不存在')
     return FileResponse(path)
 
 def transcribe(id):
@@ -611,6 +620,9 @@ def analyze(id: str):
 
 from local.vision_api import router as vision_router
 app.include_router(vision_router)
+
+from local.agent_api import router as agent_router
+app.include_router(agent_router)
 
 if FRONTEND.exists():
     app.mount('/', StaticFiles(directory=FRONTEND, html=True), name='frontend')

@@ -333,6 +333,8 @@ def frame(job_id: str, name: str):
     report = read(folder)
     if not any(f['file'] == name for group in report['groups'] for f in group['frames']):
         raise HTTPException(404, '找不到证据图')
+    if not (folder / name).is_file():
+        raise HTTPException(404, '本机证据图文件不存在')
     return FileResponse(folder / name, media_type='image/jpeg')
 
 
