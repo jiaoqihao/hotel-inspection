@@ -1,0 +1,2 @@
+ops/*.sh text eol=lf
+ops/*.service text eol=lf

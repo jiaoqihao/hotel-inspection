@@ -102,15 +102,17 @@ def ready():
 def ensure_model():
     if ready():
         return
-    exe = ROOT / 'llama/llama-server.exe'
+    exe = (ROOT / 'llama/llama-server.exe' if os.name == 'nt'
+           else Path(os.environ.get('HOTEL_LLAMA_SERVER', ROOT / 'llama/llama-server')))
     if not installed() or not exe.exists():
         raise ValueError('模型或运行库未就绪。请完成视觉模型安装。')
     args = [str(exe), '-m', str(WEIGHTS / MODEL), '--mmproj', str(WEIGHTS / PROJECTOR),
             '--alias', 'hotel-vision', '--host', '127.0.0.1', '--port', '8767',
-            '-ngl', '99', '--device', 'Vulkan0', '-c', '8192', '--parallel', '1',
+            *(['-ngl', '99', '--device', 'Vulkan0'] if os.name == 'nt' else ['-ngl', '0', '-t', '2']),
+            '-c', '8192', '--parallel', '1',
             '--image-max-tokens', '768', '--no-webui', '--no-warmup', '--log-disable']
     with (ROOT / 'vision-model.log').open('ab') as log:
-        proc = subprocess.Popen(args, stdout=log, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW)
+        proc = subprocess.Popen(args, stdout=log, stderr=log, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     for _ in range(90):
         if ready():
             return

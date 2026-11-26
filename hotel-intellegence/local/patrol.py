@@ -5,6 +5,7 @@ import ctypes
 from ctypes import wintypes
 import hashlib
 import logging
+import os
 from pathlib import Path
 import shutil
 import sqlite3
@@ -32,6 +33,10 @@ class Blob(ctypes.Structure):
 
 
 def protect(value: bytes, decrypt=False) -> bytes:
+    if os.name != 'nt':
+        from cryptography.fernet import Fernet
+        cipher = Fernet(os.environ['HOTEL_CREDENTIAL_KEY'].encode('ascii'))
+        return cipher.decrypt(value) if decrypt else cipher.encrypt(value)
     # Windows DPAPI, current user; keep the entire RTSP URI out of plaintext storage.
     buf = (ctypes.c_ubyte * len(value)).from_buffer_copy(value)
     source, result = Blob(len(value), buf), Blob()
