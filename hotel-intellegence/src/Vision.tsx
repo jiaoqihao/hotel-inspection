@@ -4,6 +4,7 @@ import { EmptyState, WorkHeading, StateTag } from './Workspace';
 import UniformStyles from './UniformStyles';
 
 type Summary = { id: string; filename: string; created: string; scene: string; state: string; review: string };
+type Attempt = {name:string; started:number; outcome:string; job:string|null};
 type Group = { gesture?:{person:number; seconds:number; style:string}; frames: {file: string; role?:string; seconds: number | null}[]; findings: {name: string; status: string; detail: string; level: string}[] };
 type Report = Summary & {kind: string; error: string; groups: Group[]; model: string; reviewNote?: string; gestureCount?:number; gestureVersion?:number; sourceJobId?: string; recheckId?: string; retestedAt?: string; retestError?: string};
 type Setup = {poseInstalled?:boolean; installed: boolean; profiles: Record<string,string[]>; model: string};
@@ -38,6 +39,8 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
   const [tie,setTie] = useState('');
   const [hair,setHair] = useState('');
   const [jobs, setJobs] = useState<Summary[]>([]);
+  const [history,setHistory] = useState<Attempt[]>([]);
+  const [historyOffline,setHistoryOffline] = useState(false);
   const [offset, setOffset] = useState(0);
   const [id, setId] = useState(window.location.hash.match(/^#vision\/([a-f0-9]{32})$/)?.[1] || '');
   const [report, setReport] = useState<Report | null>(null);
@@ -76,6 +79,22 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
     refresh();
     return () => {active = false; clearTimeout(timer);};
   }, [id,offset,pending]);
+  useEffect(() => {
+    if(id || creating) return;
+    let active=true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function refreshHistory(){
+      try {
+        const response=await fetch('/api/patrol');
+        if(!response.ok)throw Error();
+        const result=await response.json();
+        if(active){setHistory(result.history);setHistoryOffline(false);}
+      } catch {if(active)setHistoryOffline(true);}
+      if(active)timer=setTimeout(refreshHistory,3500);
+    }
+    refreshHistory();
+    return ()=>{active=false;clearTimeout(timer);};
+  },[id,creating]);
   function select(next: string) {
     window.history.replaceState(null, '', next ? '#vision/'+next : '#vision');
     setCreating(false); setReport(null); setId(next); setNote(''); setError('');}
@@ -105,11 +124,13 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
     } catch(e) {setError((e as Error).message);}
     finally {setBusy(false);}
   }
+  const outcomes=new Map(history.map(run=>[run.job,run.outcome]));
+  const withoutReport=history.filter(run=>!run.job);
   const visibleJobs = jobs.slice(0,40);
   return <section className="work-page vision">
     {(creating || id) && <button className="work-back" onClick={()=>select('')}><ArrowLeft size={16}/>返回巡检记录</button>}
-    <WorkHeading title={creating ? '新建巡检' : id ? '巡检报告' : '影像巡检'}
-      description={creating ? '选择现场素材与检查项，在本机分析。' : id ? undefined : '查看现场影像、巡检证据与整改进度。'}>
+    <WorkHeading title={creating ? '新建巡检' : id ? '巡检报告' : '巡检记录'}
+      description={creating ? '选择现场素材与检查项，在本机分析。' : id ? undefined : '查看点位自动巡检和手动上传的报告，跟进证据与整改。'}>
       {!creating && !id && <button className="primary" onClick={()=>{setError('');setCreating(true);}}><Plus size={16}/>新建巡检</button>}
     </WorkHeading>
     {(error || refreshError) && <p role="alert" className="work-notice">{error || refreshError}</p>}
@@ -152,17 +173,23 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
         {group.findings.map(f=><div className="finding" key={f.name}><strong>{f.name}</strong> <span className={'tag '+(f.status==='发现异常'?'amber':f.status==='未见异常'?'green':'neutral')}>{f.status}</span> {f.level}<p>{f.detail}</p></div>)}</details>)}
       {report.state==='已完成' && <div><label>复核与整改记录<textarea placeholder={report.reviewNote || '填写复核意见或整改结果'} value={note} maxLength={1000} onChange={e=>setNote(e.target.value)}/></label>{report.reviewNote && <p>已记录：{report.reviewNote}</p>}<div className="vision-checks">{['已确认','已标误报','待整改','已复查'].map(state=><button className="secondary small" disabled={busy} key={state} onClick={()=>action(state)}>{state}</button>)}</div></div>}</section>}
     {!id && !creating && <section className="work-card vision-ledger">
-      <header className="work-card-head"><ClipboardList size={19}/><h2>巡检记录</h2>
+      <header className="work-card-head"><ClipboardList size={19}/><h2>巡检报告</h2>
         <div className="work-switch" aria-label="复核状态">{[false,true].map(value=><button key={String(value)} aria-pressed={pending===value}
           onClick={()=>{setOffset(0);setPending(value);}}>{value?'待整改':'全部记录'}</button>)}</div>
       </header>
+      {historyOffline && <p className="work-notice" role="status">点位运行状态暂时无法更新。</p>}
+      {!pending && offset===0 && withoutReport.length>0 && <details className="patrol-attempts">
+        <summary>最近未生成报告的巡检（{withoutReport.length}）</summary>
+        <ul>{withoutReport.map((run,i)=><li key={run.started+'-'+i}><strong>{run.name}</strong>
+          <span>{new Date(run.started*1000).toLocaleString('zh-CN')}</span><span>{run.outcome}</span></li>)}</ul>
+      </details>}
       {visibleJobs.length ? <ul className="vision-list">{visibleJobs.map(job=>
         <li key={job.id}><button onClick={()=>select(job.id)}>
           <span className="work-icon"><FileImage size={19}/></span>
-          <span className="job-name"><strong>{job.filename}</strong><small>{job.scene} · {new Date(job.created).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})}</small></span>
+          <span className="job-name"><strong>{job.filename}</strong><small>{job.scene} · {new Date(job.created).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})}{outcomes.has(job.id) && ' · '+outcomes.get(job.id)}</small></span>
           <span className="job-states"><StateTag value={job.state}/><StateTag value={job.review}/></span><ChevronRight size={16}/>
         </button></li>)}</ul> : <EmptyState icon={Video}
-          title={!setup ? (refreshError ? '巡检记录暂不可用' : '正在读取巡检记录…') : pending ? '暂无待整改记录' : '暂无巡检记录'}
+          title={!setup ? (refreshError ? '巡检记录暂不可用' : '正在读取巡检记录…') : pending ? '暂无待整改记录' : '暂无巡检报告'}
           detail={setup ? (pending ? '标记为待整改的巡检会出现在这里。' : '新建一次影像巡检，或从定期巡检接收报告。') : undefined}/>}
       {(offset>0||jobs.length>40)&&<div className="work-pager"><button className="secondary small" disabled={!offset} onClick={()=>setOffset(n=>Math.max(0,n-40))}>上一页</button><span>第 {offset/40+1} 页</span><button className="secondary small" disabled={jobs.length<=40} onClick={()=>setOffset(n=>n+40)}>下一页</button></div>}
     </section>}

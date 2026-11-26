@@ -76,6 +76,12 @@ function App({user,store}:{user:User;store:boolean}){
   const [page,setPage]=useState(phone && /^#phone(?:$|[/?])/.test(window.location.hash) ? 'phone' : quality && window.location.hash.startsWith('#vision') ? 'vision' : quality && window.location.hash==='#patrol'?'patrol':quality && window.location.hash==='#badge'?'badge':'dashboard');
   useEffect(()=>{if(!['phone','phone-report','orders','pending','overdue','duty'].includes(page)&&/^#phone(?:$|[/?])/.test(window.location.hash))window.history.replaceState(null,'',window.location.pathname+window.location.search+(page==='vision'?'#vision':page==='patrol'?'#patrol':''))},[page]);
 
+  const [recordsVisit,setRecordsVisit]=useState(0);
+  function openCameraRecords(){
+    window.history.replaceState(null,'','#vision');
+    setPage('vision');
+    setRecordsVisit(n=>n+1);
+  }
   const activeModule = page === 'patrol' ? 'vision'
     : ['records','tasks','customers','standards','import'].includes(page) ? 'badge'
     : ['phone-report','orders','pending','overdue','duty'].includes(page) ? 'phone' : page;
@@ -241,7 +247,7 @@ function App({user,store}:{user:User;store:boolean}){
   const hasMoreActions=(supervise&&!!selected?.report)||(canManageAudio&&(supervise||health?.diarization));
   return <div className="app-shell">
     <aside className="sidebar"><div className="brand"><span className="brand-mark inn-mark" aria-hidden="true"><i/><i/><i/></span><div><strong>栖鉴</strong><small>酒店智能巡检与服务分析</small></div></div><nav>{navs.filter(n=>!(['vision','badge'].includes(n.id)&&!quality)&&!(n.id==='phone'&&!phone)&&!(n.id==='settings'&&!supervise)).map(n=><button key={n.id} aria-current={activeModule===n.id?'page':undefined} className={activeModule===n.id?'nav-item active':'nav-item'} onClick={()=>{setPendingBadge(false);setCameraFilter(false);setPage(n.id)}}><Icon name={n.icon}/>{n.name}</button>)}</nav><div className="sidebar-bottom"><p>{user.name} · {user.role}</p>{store&&<button onClick={async()=>{await request('/api/session/logout',{method:'POST'});location.reload()}}>退出登录</button>}</div></aside>
-    <div className="main-shell"><header className="topbar"><div className="breadcrumb">酒店质检 <span>/</span> <strong>{[...navs,{id:'import',name:'导入录音'},{id:'customers',name:'客户档案'},{id:'records',name:'挂牌与胸牌录音档案'},{id:'standards',name:'服务标准'},{id:'tasks',name:'改进待办'},{id:'patrol',name:'定期巡检'},{id:'duty',name:'电话值班'},{id:'phone-report',name:'电话运营分析'},{id:'pending',name:'待确认电话事项'},{id:'overdue',name:'超时工单'}].find(n=>n.id===page)?.name}</strong></div><div className="top-right"><span className={`connection ${connected?'':'offline'}`}><i/>{connected?'本地服务已连接':'正在连接本地服务'}</span><span className="top-divider"/><span className="today">{new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'})}</span></div></header>
+    <div className="main-shell"><header className="topbar"><div className="breadcrumb">酒店质检 <span>/</span> <strong>{[...navs,{id:'import',name:'导入录音'},{id:'customers',name:'客户档案'},{id:'records',name:'挂牌与胸牌录音档案'},{id:'standards',name:'服务标准'},{id:'tasks',name:'改进待办'},{id:'patrol',name:'摄像头巡检'},{id:'duty',name:'电话值班'},{id:'phone-report',name:'电话运营分析'},{id:'pending',name:'待确认电话事项'},{id:'overdue',name:'超时工单'}].find(n=>n.id===page)?.name}</strong></div><div className="top-right"><span className={`connection ${connected?'':'offline'}`}><i/>{connected?'本地服务已连接':'正在连接本地服务'}</span><span className="top-divider"/><span className="today">{new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'})}</span></div></header>
     <main>
       {(page==='dashboard'||page==='reports')&&<Overview quality={quality} phone={phone} phoneReport={phone&&!['部门员工','质检员'].includes(user.role)} report={page==='reports'} navigate={target=>{
         setPendingBadge(target==='records');if(target==='records'){setDeviceScope('全部设备');setUnitScope('');setFilter('全部场景');setQuery('')}setCameraFilter(target==='vision-pending');setPage(target==='vision-pending'?'vision':target)
@@ -252,10 +258,10 @@ function App({user,store}:{user:User;store:boolean}){
         <details><summary aria-current={page==='customers'||page==='standards'?'page':undefined}>更多</summary><div>{[['customers','客户档案'],['standards','服务标准']].map(([id,label])=><button className="text-button" key={id} onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');setPage(id)}}>{label}</button>)}</div></details>
       </nav>}
       {['vision','patrol'].includes(page)&&<nav className="module-tabs bd-nav" aria-label="摄像头巡检导航">
-        <button aria-current={page==='vision'?'page':undefined} onClick={()=>setPage('vision')}>影像巡检</button>
-        <button aria-current={page==='patrol'?'page':undefined} onClick={()=>setPage('patrol')}>点位与定期巡检</button>
+        <button aria-current={page==='vision'?'page':undefined} onClick={openCameraRecords}>巡检记录</button>
+        <button aria-current={page==='patrol'?'page':undefined} onClick={()=>setPage('patrol')}>添加点位</button>
       </nav>}
-      {page==='vision'&&<Vision pending={cameraFilter} setPending={setCameraFilter} canExport={supervise} token={health?.token || ''}/>}
+      {page==='vision'&&<Vision key={recordsVisit} pending={cameraFilter} setPending={setCameraFilter} canExport={supervise} token={health?.token || ''}/>}
       {page==='patrol'&&<Patrol token={health?.token || ''} openReport={id=>{window.history.replaceState(null,'','#vision/'+id);setPage('vision');}}/>}
       {quality&&<BadgeDevices visible={page==='badge'} api={api} admin={user.role==='管理员'} registry={registry} setRegistry={setRegistry} records={records} viewRecords={viewUnit} openRecord={id=>{const r=records.find(v=>v.id===id);if(r)open(r)}}/>}
       {page==='import'&&<><section className="page-heading"><h1>导入录音</h1><button className="secondary" onClick={()=>setPage('records')}>返回录音档案</button></section>
