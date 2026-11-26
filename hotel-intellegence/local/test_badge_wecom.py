@@ -126,7 +126,6 @@ class WecomTests(unittest.TestCase):
         first = self.client.post("rules", json=RULE).json()[0]
         self.add(sample())
         with (
-            patch("local.badge_scripts.redacted_turns", return_value=[(3, ["欢迎光临"])]),
             patch(
                 "local.badge_scripts.request_json",
                 return_value=[

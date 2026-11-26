@@ -57,13 +57,13 @@ export function Customers({api,record,onLink,onEvidence,notify,revision=0,device
 }
 
 
-export type Coverage = {scene:string; items:{name:string; group:string; matches:number[]}[]};
+export type Coverage = {scene:string; items:{name:string; group:string; matches:number[]; example?:string}[]};
 
 export function SceneCoverage({sections,inspect}:{sections:Coverage[];inspect:(group:string,index:number)=>void}) {
   return <>{sections.map(section=><details key={section.scene} className="br-section scene-coverage">
     <summary><strong>{section.scene}分析明细</strong><span>{section.items.length} 项要求</span></summary>
     <table><thead><tr><th>分析要求</th><th>录音依据</th></tr></thead><tbody>
-      {section.items.map(item=><tr key={item.name}><td>{item.name}</td><td>{item.matches.length
+      {section.items.map(item=><tr key={item.name}><td>{item.name}{item.example&&<small className="br-example">参考话术 · {item.example}</small>}</td><td>{item.matches.length
         ? <button type="button" className="text-button" onClick={()=>inspect(item.group,item.matches[0])}>查看 {item.matches.length} 项结果</button>
         : <small className="muted">未提取到依据</small>}</td></tr>)}
     </tbody></table>

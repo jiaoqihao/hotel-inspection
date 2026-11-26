@@ -68,6 +68,8 @@ def phone_permissions(role, row=None):
 
 
 def identity(request):
+    if "hotel.agent_actor" in request.scope:
+        return request.scope["hotel.agent_actor"]
     if not STORE:
         return {
             "name": "本机管理员",
@@ -93,6 +95,8 @@ def identity(request):
 
 def allowed(user, path, method):
     role = user["role"]
+    if path.startswith("/api/agent/"):
+        return True
     if path in (
         "/api/status",
         "/api/overview",

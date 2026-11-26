@@ -372,7 +372,7 @@ class WorkbenchTests(unittest.TestCase):
             self.assertEqual(phone.detail("old")["category"], "")
             self.assertTrue(phone.audio("old").path.is_file())
             with platform_db.database() as db:
-                self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 4)
+                self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 5)
                 self.assertEqual(
                     db.execute("PRAGMA integrity_check").fetchone()[0], "ok"
                 )

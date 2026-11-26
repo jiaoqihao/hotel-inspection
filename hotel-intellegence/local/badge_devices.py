@@ -169,9 +169,9 @@ class Directory:
                                (row['app'],d.number,d.source,body.name.strip(),body.position.strip(),False,body.enabled))
                     db.execute('UPDATE badge_devices SET retired=1,revision=revision+1 WHERE id=?',(device_id,))
                 else:
-                    db.execute("""UPDATE badge_devices SET name=?,position=?,test=?,enabled=?,retired=?,
+                    db.execute("""UPDATE badge_devices SET name=?,position=?,enabled=?,retired=?,
                                   revision=revision+1 WHERE id=?""",
-                               (body.name.strip(),body.position.strip(),False,body.enabled,body.retired,device_id))
+                               (body.name.strip(),body.position.strip(),body.enabled,body.retired,device_id))
                 if body.replacement or body.retired and not row['retired']:
                     from local.badge_scripts import local_day
                     end = (local_day() + timedelta(days=1)).isoformat()
