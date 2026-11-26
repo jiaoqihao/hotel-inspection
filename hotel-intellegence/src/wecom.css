@@ -1,0 +1,120 @@
+.wc-page {
+  display: grid;
+  gap: 18px;
+}
+.wc-page .bd-heading {
+  margin: 0;
+}
+.wc-card {
+  padding: clamp(18px, 2.2vw, 32px);
+  min-width: 0;
+}
+.wc-card h2,
+.wc-card h3 {
+  margin: 0 0 10px;
+}
+.wc-card h3 {
+  font-size: 1.04rem;
+  margin-top: 22px;
+}
+.wc-card p,
+.wc-binding p {
+  color: #53675f;
+  line-height: 1.65;
+  margin: 8px 0;
+}
+.wc-card pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f4f7f5;
+  padding: 16px;
+  border-radius: 6px;
+  font: inherit;
+  line-height: 1.7;
+}
+.wc-guide {
+  padding: 12px 0;
+  border-bottom: 1px solid #dae2dc;
+}
+.wc-card summary,
+.wc-binding summary {
+  cursor: pointer;
+  color: #235e50;
+  padding: 5px 0;
+}
+.wc-guide li {
+  padding: 3px 0;
+}
+.wc-guide a {
+  color: #235e50;
+}
+.wc-form,
+.wc-binding {
+  display: grid;
+  gap: 12px;
+  margin: 15px 0;
+}
+.wc-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 12px;
+}
+.wc-card label {
+  font-size: 0.9rem;
+  color: #3b5249;
+}
+.wc-form > label,
+.wc-fields label {
+  display: grid;
+  gap: 6px;
+}
+.wc-card input:not([type='checkbox']),
+.wc-card select {
+  max-width: 100%;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #bbc9c2;
+  border-radius: 6px;
+  background: white;
+  color: #203e33;
+}
+.wc-check,
+.wc-actions,
+.wc-line,
+.wc-rule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wc-line,
+.wc-rule {
+  justify-content: space-between;
+}
+.wc-rule,
+.wc-evidence {
+  border-top: 1px solid #e0e7e2;
+  padding: 12px 0;
+}
+.wc-rule small {
+  display: block;
+  color: #52665d;
+  margin-top: 5px;
+}
+.wc-evidence .wc-actions {
+  margin-top: 10px;
+}
+.wc-binding > button {
+  justify-self: start;
+}
+@media (max-width: 650px) {
+  .bd-nav {
+    flex-wrap: wrap;
+  }
+  .wc-actions {
+    gap: 8px;
+  }
+  .wc-card {
+    padding: 15px;
+  }
+}

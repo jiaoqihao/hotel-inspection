@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState, type ReactNode} from 'react';
+import {Wearer} from './BadgeScripts';
 import {request} from './Store';
 import './badge-devices.css';
 
@@ -141,6 +142,7 @@ export default function BadgeDevices({api,visible,admin,registry,setRegistry,rec
     {panel==='connection'&&<Connection api={api} close={()=>setPanel('')} saved={()=>{setPanel('');setRefresh(n=>n+1)}}/>}
     {panel==='add'&&<AddUnits api={api} known={units} close={()=>setPanel('')} finish={finish}/>}
     {unit&&panel==='detail'&&<Dialog title={unit.name||unit.number} close={()=>setPanel('')}><dl className="bd-facts">{Object.entries({'设备编号':unit.number,'类型':unit.source,'岗位':unit.position||'—','硬件状态':signal(unit).detail,'最后心跳':stamp(snapshot.states[unit.id]?.heartbeat),'剩余电量':snapshot.states[unit.id]?.battery!=null?snapshot.states[unit.id].battery+'%':'—','同步状态':syncLabel(unit),'上次成功同步':stamp(unit.synced)}).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+      {admin&&!unit.retired&&<Wearer device={unit.id} api={api}/>}
       {unit.error&&<p role="status">{unit.error}</p>}<h3>最近录音</h3>{byUnit.get(unit.id)?.length?byUnit.get(unit.id)!.slice(0,3).map(r=><button key={r.id} className="bd-record" onClick={()=>{setPanel('');openRecord(r.id)}}>{stamp(r.recordedAt||r.createdAt)}　{r.filename}</button>):<p>暂无关联录音</p>}
       <footer><button className="primary" onClick={()=>{setPanel('');viewRecords(unit)}}>查看这台设备的录音</button>
       {admin&&<details><summary>管理设备</summary><div className="bd-actions"><button className="secondary" onClick={()=>setPanel('edit')}>编辑设备</button>
