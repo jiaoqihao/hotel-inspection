@@ -9,4 +9,5 @@
 - [两部前台座机自动录音](docs/operations/phone-recording.md)
 - [验收记录](docs/acceptance/baseline.md)
 - [贡献规范](CONTRIBUTING.md)
+- [Linux 服务器部署与自动更新](docs/operations/deployment.md)
 - [电话工作台本机验收](docs/acceptance/phone-workbench.md)

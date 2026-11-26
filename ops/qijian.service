@@ -1,0 +1,15 @@
+[Unit]
+Description=Qijian hotel inspection
+After=network.target
+
+[Service]
+WorkingDirectory=%h/qijian/current
+EnvironmentFile=%h/qijian/config/service.env
+ExecStart=%h/qijian/current/venv/bin/python -m uvicorn local.server:app --host 127.0.0.1 --port 8765 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
