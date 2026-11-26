@@ -16,6 +16,23 @@ FILES = {
 ROOT = Path(os.environ.get('HOTEL_VOICE_DATA', Path(os.environ['LOCALAPPDATA']) / 'HotelVoice')) / 'models/vision'
 BASE = 'https://modelscope.cn/models/ggml-org/Qwen2.5-VL-3B-Instruct-GGUF/resolve/master/'
 CHUNK = 4 * 1024 * 1024
+POSE_FILE = 'pose_landmarker_lite.task'
+POSE_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/' + POSE_FILE
+POSE_SHA = '59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a'
+
+
+def install_pose():
+    ROOT.mkdir(parents=True, exist_ok=True)
+    target = ROOT / POSE_FILE
+    if target.is_file() and hashlib.sha256(target.read_bytes()).hexdigest() == POSE_SHA:
+        return
+    response = requests.get(POSE_URL, timeout=(10, 90))
+    response.raise_for_status()
+    if hashlib.sha256(response.content).hexdigest() != POSE_SHA:
+        raise ValueError('姿态模型 SHA-256 校验失败')
+    tmp = target.with_suffix('.installing')
+    tmp.write_bytes(response.content)
+    tmp.replace(target)
 
 
 def download(name, size, checksum):
@@ -67,6 +84,7 @@ def download(name, size, checksum):
 
 
 if __name__ == '__main__':
+    install_pose()
     with ThreadPoolExecutor(max_workers=2) as pool:
         for result in [pool.submit(download, name, *meta) for name, meta in FILES.items()]:
             result.result()

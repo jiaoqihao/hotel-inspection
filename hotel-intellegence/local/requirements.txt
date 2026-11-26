@@ -6,3 +6,4 @@ numpy==2.5.5
 av==19.0.2
 requests==2.34.2
 Pillow==13.0.0
+mediapipe==0.10.35

@@ -51,6 +51,10 @@
 .vision-ledger tr { cursor: default; }
 .vision-ledger td small { margin-top: 5px; }
 .patrol-actions { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.uniform-styles { min-width: 0; margin: 14px 0 8px; padding: 10px 16px 14px; border: 1px solid var(--work-line); border-radius: 8px; }
+.uniform-styles legend { font-weight: 650; padding: 0 6px; }
+.uniform-styles p { margin: 0 0 10px; }
+.uniform-styles small { color: var(--work-dim); }
 .patrol-actions button { background: transparent; border: 0; padding: 4px 0; color: var(--green); cursor: pointer; font-size: 13px; }
 .patrol-actions button:hover { text-decoration: underline; }
 @media (max-width: 650px) {

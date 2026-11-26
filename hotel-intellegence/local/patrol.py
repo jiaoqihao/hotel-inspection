@@ -18,6 +18,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, SecretStr, ValidationError
 
 from local.vision_model import PROFILES, thumbnail
+from local.frontdesk_watch import Watchers
+from local.frontdesk_pose import SCENE
 
 WORKERS = 4
 MIN_FREE = 2 * 1024**3
@@ -49,6 +51,8 @@ class Camera(BaseModel):
     minutes: int = Field(default=10, ge=1, le=1440)
     scene: str = '公区卫生'
     standard: str = Field(default='', max_length=1200)
+    tieStyle: str = Field(default='', max_length=400)
+    hairStyle: str = Field(default='', max_length=400)
 
 
 def settings(camera, require_url=True):
@@ -56,6 +60,9 @@ def settings(camera, require_url=True):
     if not name or '://' in name or camera.scene not in PROFILES:
         raise ValueError('请填写点位名称并选择有效场景')
     data = dict(name=name, minutes=camera.minutes, scene=camera.scene, standard=camera.standard.strip())
+    for field in ('tieStyle', 'hairStyle'):
+        if require_url or field in camera.model_fields_set:
+            data[field] = getattr(camera, field).strip()
     url = camera.url.get_secret_value().strip() if camera.url else ''
     if not url and not require_url:
         return data
@@ -102,13 +109,14 @@ def capture(url, sequence):
 
 
 class Patrol:
-    def __init__(self, root, submit, grab=capture, workers=WORKERS):
+    def __init__(self, root, submit, grab=capture, workers=WORKERS, submit_event=None):
         self.root = Path(root)
         self.db = self.root / 'patrol.sqlite3'
         self.submit, self.grab, self.workers = submit, grab, workers
         self.stop_event = threading.Event()
         self.wake = threading.Event()
         self.thread = None
+        self.watchers = Watchers(self, submit_event) if submit_event else None
         with self.connection() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS cameras(
@@ -122,6 +130,12 @@ class Patrol:
                   started REAL,ended REAL,outcome TEXT,job TEXT);
                 CREATE INDEX IF NOT EXISTS attempts_time ON attempts(started DESC);
             """)
+            db.execute('BEGIN IMMEDIATE')
+            if db.execute('PRAGMA user_version').fetchone()[0] < 1:
+                db.execute("ALTER TABLE cameras ADD COLUMN tieStyle TEXT NOT NULL DEFAULT ''")
+                db.execute("ALTER TABLE cameras ADD COLUMN hairStyle TEXT NOT NULL DEFAULT ''")
+                db.execute('ALTER TABLE cameras ADD COLUMN gesture_job TEXT')
+                db.execute('PRAGMA user_version=1')
 
     @contextmanager
     def connection(self):
@@ -138,8 +152,8 @@ class Patrol:
         now = time.time()
         with self.connection() as db:
             for index, row in enumerate(data):
-                db.execute("""INSERT INTO cameras(id,name,secret,fingerprint,minutes,scene,standard,due)
-                    VALUES(:id,:name,:secret,:fingerprint,:minutes,:scene,:standard,:due)""",
+                db.execute("""INSERT INTO cameras(id,name,secret,fingerprint,minutes,scene,standard,due,tieStyle,hairStyle)
+                    VALUES(:id,:name,:secret,:fingerprint,:minutes,:scene,:standard,:due,:tieStyle,:hairStyle)""",
                            dict(row, id=uuid.uuid4().hex, due=now+index*.5))
         self.wake.set()
 
@@ -152,10 +166,14 @@ class Patrol:
         self.pool = ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix='patrol-capture')
         self.thread = threading.Thread(target=self.loop, name='patrol-scheduler', daemon=True)
         self.thread.start()
+        if self.watchers:
+            self.watchers.start()
 
     def stop(self):
         self.stop_event.set()
         self.wake.set()
+        if self.watchers:
+            self.watchers.stop()
         if self.thread:
             self.thread.join()
             self.pool.shutdown(wait=True)
@@ -232,11 +250,16 @@ class Patrol:
 
     def overview(self):
         with self.connection() as db:
-            cameras = db.execute("""SELECT id,name,scene,standard,minutes,enabled,due,phase,
+            cameras = db.execute("""SELECT id,name,scene,standard,tieStyle,hairStyle,gesture_job,minutes,enabled,due,phase,
                 started,ended,outcome,last_job FROM cameras ORDER BY name,id""").fetchall()
             history = db.execute("""SELECT name,started,ended,outcome,job FROM attempts
                                      ORDER BY started DESC LIMIT 40""").fetchall()
-        return {'cameras': [dict(r) for r in cameras], 'history': [dict(r) for r in history],
+        statuses = self.watchers.snapshot() if self.watchers else {}
+        cameras = [dict(r) for r in cameras]
+        for camera in cameras:
+            if camera['scene'] == SCENE:
+                camera['gestureStatus'] = statuses.get(camera['id'], '等待监听') if camera['enabled'] else '已暂停监听'
+        return {'cameras': cameras, 'history': [dict(r) for r in history],
                 'workers': self.workers, 'running': bool(self.thread and self.thread.is_alive())}
 
 

@@ -106,12 +106,13 @@ def model_status():
 
 
 from local.patrol import Patrol, router as patrol_router
-from local.vision_api import submit_capture
+from local.vision_api import repair_gesture_times, submit_capture, submit_event
 
 
 @asynccontextmanager
 async def lifespan(app):
-    scheduler = Patrol(ROOT, submit_capture)
+    scheduler = Patrol(ROOT, submit_capture, submit_event=submit_event)
+    repair_gesture_times(scheduler)
     app.state.patrol = scheduler
     migrate()
     phones = PhoneWorker()
