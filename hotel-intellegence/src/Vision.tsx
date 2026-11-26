@@ -148,7 +148,7 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
       {gestureScan && <UniformStyles tie={tie} hair={hair} onTie={setTie} onHair={setHair}/>}
       <label>现场检查标准（选填）<textarea rows={2} maxLength={1200} value={standard} onChange={e=>setStandard(e.target.value)} placeholder="例如：画面右侧门内为禁入区域；仅在该条件适用于本段素材时填写。"/></label>
       <details className="vision-group"><summary>导入场景检查模板</summary><p>JSON 示例</p><code>{JSON.stringify({scene:'公区卫生',checks:['地面垃圾','物品乱堆'],standard:'只检查通道可见地面。'})}</code><label>模板文件<input type="file" accept=".json" onChange={e=>importTemplate(e.target.files?.[0])}/></label></details>
-      <p className="muted">{gestureScan ? '每秒约取 4 帧，识别举手后 12 秒内完成的整圈转身。其他检查项最多选取 8 个时间窗口。' : '每段选取最多 8 个时间窗口，每个窗口最多 3 帧。长视频会拉大窗口间隔，短时事件可能未被采到。'}</p>
+      <p className="muted">{gestureScan ? '每秒约取 4 帧，识别全身正对镜头、单手举过肩保持半秒的动作。其他检查项最多选取 8 个时间窗口。' : '每段选取最多 8 个时间窗口，每个窗口最多 3 帧。长视频会拉大窗口间隔，短时事件可能未被采到。'}</p>
       {gestureScan && setup?.poseInstalled===false && <p role="alert">姿态模型未安装，请运行 python -m local.setup_vision。</p>}
       <div className="compose-foot"><button className="primary" disabled={busy || !file || !token || !chosen.length || !setup?.installed || (gestureScan && setup.poseInstalled===false) || interval<1 || interval>120} onClick={submit}>{busy?'正在提交…':'开始本地分析'}</button>
       <small>{setup ? (setup.installed ? setup.model : '等待本地视觉模型安装') : '正在连接巡检服务…'}</small></div></section>}
@@ -162,7 +162,7 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
       {report.recheckId && <button className="secondary small" onClick={()=>select(report.recheckId!)}>查看全身仪容复检</button>}
       {report.sourceJobId && <button className="secondary small" onClick={()=>select(report.sourceJobId!)}>查看原巡检</button>}
       {report.state==='分析中' && <p role="status">正在本机分析，已完成 {report.groups.length} 组画面。</p>}
-      {report.state==='已完成' && report.gestureCount===0 && <p>{(report.gestureVersion ?? 1)>=2?'未检测到完整转身。':'未检测到符合条件的举手。'}</p>}
+      {report.state==='已完成' && report.gestureCount===0 && <p>{report.gestureVersion===2?'未检测到完整转身。':'未检测到符合条件的举手。'}</p>}
       {report.state==='已完成' && report.groups.length>0 && <p>{report.groups.some(g=>g.findings.some(f=>f.status==='发现异常')) ?
         '待核实异常：'+[...new Set(report.groups.flatMap(g=>g.findings.filter(f=>f.status==='发现异常').map(f=>f.level+' · '+f.name)))].join('、') :
         report.groups.some(g=>g.findings.some(f=>f.status==='无法判断')) ? '采样画面中未报告异常，部分检查项无法判断。' : '所检查的画面中未见所选异常。'}</p>}

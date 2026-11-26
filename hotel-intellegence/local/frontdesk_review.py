@@ -84,8 +84,50 @@ def archived_lower_views(scene_path, upper_path):
                 [('下装',pose.legs),('皮鞋',pose.shoes)]}
 
 
-def check_person(paths, standard, body_context=(), hair_views=()):
-    portraits = []
+def jacket_color(pictures, panels, descriptions):
+    # Extract only outerwear clauses. A black trouser or sock requirement cannot set jacket color.
+    clauses = [garment_clauses(d, r'外套|上衣|西装(?!裤)|西服(?!裤)') for d in descriptions]
+    colors = [set(re.findall(r'黑|蓝|青|灰|白|红|棕|褐|绿|紫|黄|米色|咖啡', c)) for c in clauses]
+    if any(c != colors[0] for c in colors):
+        return finding('工服', MISSING, '男士和女士的外套配色要求不同，当前画面不足以确定适用要求。')
+    if not colors[0]:
+        return finding('工服', OK, '可见已穿西装外套。')
+    panel = panels[0]
+    rgb = ImageStat.Stat(panel).median
+    views = [pictures[0], image_data(panel.resize((128,128), Image.Resampling.LANCZOS))]
+    context = f'只看举手人的西装外套，排除白衬衫、领带和背景。胸前面料区域的RGB中位数是{rgb}，结合原图核实。'
+    if colors[0] == {'黑'}:
+        # Navy and black can look similar in a dim frame. Corroborate a blue
+        # classification on the whole garment with blue dominance on its fabric.
+        red, green, blue = rgb
+        if blue - max(red, green) > 16 and blue > 1.25 * max(red, green):
+            hue = choose([pictures[0]], 'What is the visible color of the suit jacket fabric, ignoring tie, '
+                         'shirt and background? A = black or neutral near-black. B = blue or navy blue, '
+                         'including dark blue. C = another visible color. D = lighting or occlusion prevents '
+                         'distinguishing the color.', 'ABCD','')
+            if hue == 'B':
+                return finding('工服', ISSUE, '可见西装外套呈蓝色，与要求的黑色不符。')
+        color = choose(views, context+'暗部轻微偏色仍可为黑；清楚呈蓝色的西装与黑色有别。观察到的外套颜色是什么？'
+                       'A 黑色或视觉上接近中性的黑色。B 明显蓝色或深蓝。C 其他明显非黑的颜色。D 光照或遮挡无法辨色。',
+                       'ABCD','')
+        if color == 'B':
+            return finding('工服', ISSUE, '可见西装外套呈蓝色，与要求的黑色不符。')
+        if color == 'C':
+            return finding('工服', ISSUE, '可见西装外套颜色与要求的黑色不符。')
+        if color == 'A':
+            return finding('工服', OK, '可见已穿黑色西装外套。')
+    else:
+        color = choose(views, context+f'只比较外套颜色与“{clauses[0]}”的颜色要求。'
+                       'A 颜色相符；B 颜色明确不符；C 光照或遮挡导致无法辨色。','ABC','')
+        if color == 'B':
+            return finding('工服', ISSUE, '可见西装外套颜色不符合点位配置。')
+        if color == 'A':
+            return finding('工服', OK, '可见已穿西装外套，颜色符合点位要求。')
+    return finding('工服', MISSING, '可见西装外套，但画面不足以核实面料颜色。')
+
+
+def check_person(paths, standard, body_context=(), hair_views=(), *, jacket_styles=('','')):
+    portraits, panels = [], []
     pictures, badge_views, partial_chest = [], [], []
     for path in paths:
         with Image.open(path) as im:
@@ -97,17 +139,24 @@ def check_person(paths, standard, body_context=(), hair_views=()):
                 im.thumbnail((1000, 1000))
                 picture = image_data(im)
             portraits.append(picture)
+            w,h = im.size
             if exposed(im,(.33,.42,.65,.75)):
                 pictures.append(picture)
+                panels.append(im.convert('RGB').crop((round(.62*w),round(.44*h),round(.79*w),round(.70*h))))
             if exposed(im,(.50,.43,.78,.68)):
+                chest = im.crop((round(.46*w),round(.32*h),round(.95*w),round(.75*h)))
+                closeup = image_data(chest.resize((chest.width*3,chest.height*3), Image.Resampling.LANCZOS))
                 if visible_badge_area(picture):
-                    badge_views.append(picture)
+                    badge_views.append((closeup,picture))
                 else:
-                    partial_chest.append(picture)
+                    partial_chest.append((closeup,picture))
 
     front_views = portraits or list(body_context[:1])
     rule = choose(front_views, '只看举手者正面头部和上身，判断本次适用的前台仪容规范。A 男士，检查领带；B 女士，检查扎发；C 人物不清楚，无法可靠区分。领带、发型和西装款式不作为选择规范的依据。', 'ABC', '') if front_views else 'C'
     style = {'A':'男士规范', 'B':'女士规范', 'C':'适用规范待核实'}[rule]
+    applicable = list(jacket_styles)
+    if rule in ('A','B'):
+        applicable = [jacket_styles[0 if rule == 'A' else 1]]
     uniform = finding('工服', MISSING, '上身被遮挡、过暗或外套剪裁看不清。')
     if pictures:
         cut = choose(pictures, 'Inspect only the outer garment. A = clearly not a suit blazer: casual jacket, '
@@ -117,23 +166,33 @@ def check_person(paths, standard, body_context=(), hair_views=()):
         if cut == 'A':
             uniform = finding('工服', ISSUE, '上身衣着清楚可见，未穿西装外套。')
         elif cut == 'B':
-            uniform = finding('工服', OK, '可见已穿西装外套。')
+            uniform = jacket_color(pictures, panels, [d or standard for d in applicable])
 
-    badge = choose(badge_views, '仔细看外套胸前：是否有一块独立别在上衣上的矩形员工名牌？'
-                   '口袋、衣服金边、扣子和压线不算名牌。'
-                   'A 胸前有一块独立的名牌，B 清晰的胸前衣料上没有名牌，C 遮挡或模糊无法核实。', 'ABC', standard) if badge_views else 'C'
+    badge_prompt = ('Inspect this crop of the left upper chest, ignoring the shirt and tie. What discrete object '
+                    'is attached to the jacket? A = a flat rectangular employee nameplate with a broad face and '
+                    'distinct straight sides, wider than it is tall. B = plain cloth, seams, pocket, a tiny dot or round lapel pin only. '
+                    'C = the chest area is obscured or too blurry to inspect.')
+    badge = choose([v[0] for v in badge_views], badge_prompt, 'ABC','') if badge_views else 'C'
     if badge == 'C' and partial_chest:
-        visible = choose(partial_chest, '胸前局部被挡住。A=仍能清楚认出固定在本人上衣的独立矩形员工胸牌；'
-                         'B=没有足够可见的胸牌特征。口袋或衣服装饰不能算胸牌。', 'AB','')
+        visible = choose([v[0] for v in partial_chest], badge_prompt, 'ABC','')
         if visible == 'A':
             badge, badge_views = 'A', partial_chest
     if badge == 'A':
-        placement = choose(badge_views, '检查胸前名牌是否妥帖。A=佩戴在本人左上胸且固定平整；'
+        placement = choose([v[1] for v in badge_views], '检查胸前名牌是否妥帖。A=佩戴在本人左上胸且固定平整；'
                            'B=明显歪斜、松脱或错位；C=角度或画质不足以判断。', 'ABC', standard)
-        status, detail = {'A':(OK,'本人左上胸可见胸牌，佩戴端正。'), 'B':(ISSUE,'胸牌明显歪斜、松脱或位置不当。'),
-                          'C':(OK,'可见胸牌，露出部分未见明显佩戴异常，角度或完整位置看不清。')}[placement]
+        status, detail = {'A':(OK,'本人左上胸可见长方形工牌，佩戴端正。'), 'B':(ISSUE,'胸牌明显歪斜、松脱或位置不当。'),
+                          'C':(MISSING,'可见长方形工牌，佩戴位置或固定状态看不清。')}[placement]
+        badge_rule = garment_clauses('。'.join([standard,*applicable]), r'工牌|工号牌|胸牌|名牌')
+        if status == OK and '金色' in badge_rule:
+            finish = choose([v[0] for v in badge_views], 'Look only at the rectangular nameplate on the jacket. '
+                            'A = gold or warm brass-colored face; B = clearly a different color; '
+                            'C = the color is obscured.', 'ABC','')
+            if finish == 'B':
+                status, detail = ISSUE, '本人左上胸的长方形工牌颜色与金色要求不符。'
+            elif finish == 'C':
+                status, detail = MISSING, '可见长方形工牌，画面不足以核实规定的金色。'
     elif badge == 'B':
-        status, detail = ISSUE, '胸前佩戴区域清晰可见，未见胸牌。'
+        status, detail = ISSUE, '本人左上胸佩戴区域可见，未见带直边和牌面的长方形工牌。'
     else:
         status, detail = MISSING, '胸前佩戴区域被遮挡或不清晰。'
     findings = [uniform, finding('胸牌',status,detail)]
