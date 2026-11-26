@@ -1,0 +1,13 @@
+[Unit]
+Description=Qijian local text inference
+After=network.target
+
+[Service]
+ExecStart=%h/qijian/runtime/llama-server -m %h/qijian/data/models/qwen/qwen2.5-1.5b-instruct-q4_k_m.gguf --host 127.0.0.1 --port 8766 -ngl 0 -c 12288 -t 2 --parallel 1 --no-webui --no-warmup --sleep-idle-seconds 30
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

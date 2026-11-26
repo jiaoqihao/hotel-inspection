@@ -6,7 +6,7 @@ Ubuntu 24.04 主机使用 Python 3.12、系统 pip、venv、rsync、flock 与用
 
 ~/qijian/config/service.env 权限为 0600。设置 LOCALAPPDATA、HOTEL_VOICE_DATA、HOTEL_STORE_ORIGIN、HOTEL_LLAMA_SERVER、HOTEL_CREDENTIAL_KEY 和 DEEPSEEK_API_KEY。ORIGIN 为无尾斜杠的完整 HTTPS 地址，与 Caddy 独立站点名一致，反向代理至 127.0.0.1:8765。Linux 凭据密钥用 Fernet.generate_key() 生成，独立安全备份。迁移 Windows 的 DPAPI 加密记录时需重新配置对应的设备凭据。
 
-运行数据放在 ~/qijian/data，模型权重放在其 models 子目录，Linux CPU 运行库独立安装。创建或重置门店账号时，进入 ~/qijian/current，执行以下命令，在终端输入密码。
+运行数据放在 ~/qijian/data，模型权重放在其 models 子目录，Linux CPU 运行库独立安装。安装并启用 ops/qijian-text.service 以运行回环端口 8766 上的电话推理与胸牌脱敏模型。视觉模型按需启动，两者空闲 30 秒后释放模型内存。可通过 ~/qijian/config/pip.conf 指定主机可达的 PyPI 镜像。创建或重置门店账号时，进入 ~/qijian/current，执行以下命令，在终端输入密码。
 
 ```bash
 set -a

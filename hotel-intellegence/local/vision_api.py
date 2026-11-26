@@ -108,7 +108,8 @@ def ensure_model():
         raise ValueError('模型或运行库未就绪。请完成视觉模型安装。')
     args = [str(exe), '-m', str(WEIGHTS / MODEL), '--mmproj', str(WEIGHTS / PROJECTOR),
             '--alias', 'hotel-vision', '--host', '127.0.0.1', '--port', '8767',
-            *(['-ngl', '99', '--device', 'Vulkan0'] if os.name == 'nt' else ['-ngl', '0', '-t', '2']),
+            *(['-ngl', '99', '--device', 'Vulkan0'] if os.name == 'nt'
+              else ['-ngl', '0', '-t', '2', '--sleep-idle-seconds', '30']),
             '-c', '8192', '--parallel', '1',
             '--image-max-tokens', '768', '--no-webui', '--no-warmup', '--log-disable']
     with (ROOT / 'vision-model.log').open('ab') as log:

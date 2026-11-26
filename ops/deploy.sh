@@ -16,7 +16,7 @@ digest=$(sha256sum "$candidate/local/requirements.txt" | cut -d' ' -f1)
 envdir="$base/envs/$digest"
 if [[ ! -f $envdir/.ready ]]; then
     python3 -m venv --without-pip "$envdir"
-    python3 -m pip --python "$envdir" install --no-cache-dir -r "$candidate/local/requirements.txt"
+    PIP_CONFIG_FILE="$base/config/pip.conf" python3 -m pip --python "$envdir" install --no-cache-dir -r "$candidate/local/requirements.txt"
     touch "$envdir/.ready"
 fi
 ln -s "$envdir" "$candidate/venv"
