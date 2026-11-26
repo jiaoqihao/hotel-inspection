@@ -29,6 +29,8 @@
 .vision-frames { margin: 14px 0; align-items: flex-start; }
 .vision-frames figure { flex: 1 1 180px; max-width: 620px; margin: 0; }
 .vision-frames img { display: block; max-width: 100%; border-radius: 6px; }
+.gesture-overview figure { max-width: 840px; }
+.gesture-overview img { width: 100%; height: auto; }
 .vision-frames figcaption, .vision-list small, .vision-ledger td small { color: var(--work-dim); font-size: 13px; }
 .vision-report label { margin-top: 16px; }
 .vision-list { margin: 0; padding: 0; list-style: none; }

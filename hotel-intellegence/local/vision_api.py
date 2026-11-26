@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 import requests
 
 from local.setup_vision import FILES, MODEL, PROJECTOR
-from local.frontdesk_pose import CHECK, NO_EVENT, TURN_NO_EVENT, SCENE, pose_ready, scan
+from local.frontdesk_pose import CHECK, GESTURE_VERSION, NO_EVENT, TURN_NO_EVENT, SCENE, pose_ready, scan
 from local.frontdesk_review import archived_lower_views, check_person, check_lower_body
 from local.vision_model import IMAGE, VIDEO, PROFILES, URL, encoded_image, inspect_group, media_groups
 
@@ -140,8 +140,9 @@ def inspect_event(folder, report, event):
     tie_style, hair_style = report['tieStyle'], report['hairStyle']
     hair_views = [encoded_image(folder / f['file']) for role in ('背面头部','左侧头部','右侧头部')
                   for f in event['frames'] if f['role'] == role]
-    style, findings = check_person(crops, tie_style, hair_style, report['standard'], body, hair_views)
-    applicable = {'领带款':tie_style, '扎发款':hair_style}.get(style,'\n'.join((tie_style,hair_style)))
+    style, findings = check_person(crops, report['standard'], body, hair_views,
+                                   jacket_styles=(tie_style, hair_style))
+    applicable = {'男士规范':tie_style, '女士规范':hair_style}.get(style,'\n'.join((tie_style,hair_style)))
     recovered = {}
     if not body and crops and not any(f['role']=='鞋履细节' for f in event['frames']):
         scenes = [f for f in event['frames'] if f['role']=='举手全景']
@@ -172,7 +173,7 @@ def run(folder, report, manual=True):
                 report['groups'].append(inspect_event(folder, report, stored))
                 count += 1
                 save(folder, report)
-            report['gestureVersion'] = 2
+            report['gestureVersion'] = GESTURE_VERSION
             report['gestureCount'] = count
             checks = [name for name in checks if name != CHECK]
         if 'captureEvent' in report:
@@ -271,7 +272,7 @@ def submit_event(camera, event):
         report = dict(id=job, model=MODEL_NAME, created=captured.isoformat(), kind='举手仪容检查',
                       filename=camera['name']+' · 举手仪容检查 '+captured.astimezone().strftime('%H:%M:%S'),
                       scene=SCENE, checks=[CHECK], standard=camera['standard'], cameraId=camera['id'],
-                      tieStyle=camera['tieStyle'], hairStyle=camera['hairStyle'], gestureVersion=2, gestureClockVersion=2,
+                      tieStyle=camera['tieStyle'], hairStyle=camera['hairStyle'], gestureVersion=GESTURE_VERSION, gestureClockVersion=2,
                       captureEvent=store_event(folder, event, 'gesture-0', live=True),
                       state='排队中', error='', review='待复核', groups=[])
         save(folder, report)
@@ -351,7 +352,7 @@ def export(job_id: str):
                 f'<p>现场标准：{escape(r["standard"] or "默认")}</p>',
                 '<p>结论仅适用于以下采样画面。未采样的时段可能包含其他事件。</p>']
     if r.get('gestureCount') == 0:
-        sections.append(f"<p>{TURN_NO_EVENT if r.get('gestureVersion',1)>=2 else NO_EVENT}</p>")
+        sections.append(f"<p>{TURN_NO_EVENT if r.get('gestureVersion',1)==2 else NO_EVENT}</p>")
     for i, group in enumerate(r['groups'], 1):
         sections.append(f'<h2>第 {i} 组证据</h2>')
         if gesture := group.get('gesture'):
@@ -409,7 +410,7 @@ def create(file: UploadFile = File(...), scene: str = Form('公区卫生'), inte
                   'standard': standard.strip(), 'interval': interval, 'state': '排队中', 'error': '',
                   'review': '待复核', 'groups': [], 'kind': '图片' if ext in IMAGE else '视频'}
         if gesture_scan:
-            report.update(gestureVersion=2, tieStyle=tieStyle.strip(), hairStyle=hairStyle.strip())
+            report.update(gestureVersion=GESTURE_VERSION, tieStyle=tieStyle.strip(), hairStyle=hairStyle.strip())
         save(folder, report)
         POOL.submit(run, folder, report)
         return {'id': folder.name}
@@ -443,7 +444,7 @@ def retest_saved(folder, report, settings, patrol=None):
             for i, event in enumerate(scan(folder/('source'+report['extension']))):
                 stored = store_event(folder,event,f'{prefix}-{i}')
                 groups.append(inspect_event(folder,rules,stored))
-            report['gestureVersion'] = 2
+            report['gestureVersion'] = GESTURE_VERSION
         if 'gestureCount' in report:
             report['gestureCount'] = sum('gesture' in group for group in groups)
         report.update(settings)

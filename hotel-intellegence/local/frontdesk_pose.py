@@ -1,11 +1,11 @@
 """Local front-desk gesture detection, shared by RTSP and uploaded video."""
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from math import hypot
 import time
 
 import av
-from PIL import ImageDraw, ImageFilter, ImageStat
+from PIL import ImageDraw
 
 from local.setup_vision import POSE_FILE, ROOT
 from local.vision_model import thumbnail
@@ -15,7 +15,8 @@ CHECK = '仪容仪表'
 NO_EVENT = '未检测到符合条件的举手'
 TURN_NO_EVENT = '未检测到完整转身'
 SAMPLE_INTERVAL = .25
-TURN_SECONDS = 12
+MAX_TRACK_GAP = 1.0
+GESTURE_VERSION = 3
 
 
 @dataclass
@@ -105,7 +106,8 @@ def observation(points):
                          and abs(nose.x-cx) < .4*width)
                 if not front:
                     view = ''
-                elif all(visible(i) for i in landmarks):
+                # Both legs already have a visible ankle and heel or toe.
+                elif all(visible(i) for i in (11,12,15,16)):
                     up = points[15].y < left.y, points[16].y < right.y
                     gesture = {(True,False):'left',(False,True):'right',
                                (True,True):'both',(False,False):'down'}[up]
@@ -139,83 +141,95 @@ def crop_region(image, region):
 
 
 @dataclass
-class Turn:
-    event: Event
-    angles: list = field(default_factory=lambda: ['正面'])
-    samples: dict = field(default_factory=dict)
-    candidate: str = ''
-    consecutive: int = 0
-
-    def advance(self, stamp, image, obs):
-        view = obs.view
-        if stamp-self.event.stamp > TURN_SECONDS or view == 'clipped':
-            return 'cancel'
-        self.consecutive = self.consecutive+1 if view == self.candidate else 1
-        self.candidate = view
-        if not view or self.consecutive < 2:
-            return ''
-        if view != self.angles[-1]:
-            if len(self.angles) == 1:
-                expected = ('左侧','右侧')
-            else:
-                other = '左侧' if self.angles[1]=='右侧' else '右侧'
-                expected = (('背面',other,'正面')[len(self.angles)-2],)
-            if view not in expected:
-                return 'cancel'
-            self.angles.append(view)
-        if len(self.angles) == 1:
-            return ''
-        body = crop_region(image,obs.body)
-        small = body.convert('L')
-        small.thumbnail((96,128))
-        sharpness = ImageStat.Stat(small.filter(ImageFilter.FIND_EDGES)).mean[0]
-        if view not in self.samples or sharpness > self.samples[view][0]:
-            frames = [(view+'全身',stamp,body)]
-            if view == '正面':
-                frames.append(('转回正面上身',stamp,image.crop(target_box(obs,image.size))))
-            else:
-                frames.append((view+'头部',stamp,crop_region(image,obs.head)))
-            frames.extend([(view+'下装',stamp,crop_region(image,obs.legs)),
-                           (view+'鞋履',stamp,crop_region(image,obs.shoes))])
-            self.samples[view] = sharpness,frames
-        if len(self.angles) == 5:
-            for angle in self.angles[1:]:
-                self.event.frames.extend(self.samples[angle][1])
-            return 'complete'
-        return ''
-
-
-@dataclass
 class Track:
     obs: Observation
     seen: float
     pose: str = ''
     since: float = 0
+    last_raise: float = 0
     latched: bool = False
-    pending: Turn | None = None
+
+
+def track_distance(previous, obs, size):
+    dx = abs(obs.center[0] - previous.center[0])
+    dy = abs(obs.center[1] - previous.center[1])
+    if obs.shoes and previous.shoes:
+        # Shoulder-to-foot height remains comparable through a rotation.
+        # MediaPipe shoulder depth (and hence 3-D width) jumps in profile.
+        h1 = obs.shoes[3] - obs.center[1]
+        h2 = previous.shoes[3] - previous.center[1]
+        height = min(h1, h2)
+        # A profile can shift the estimated shoulder centre as the far arm disappears.
+        profile = previous.view in ('左侧', '右侧') or obs.view in ('左侧', '右侧')
+        max_vertical = .22 if profile else .10
+        if height <= .55 * max(h1, h2) or dy > max_vertical * height:
+            return None
+        distance = hypot(dx * size[0] / size[1], dy)
+        return distance / height if distance < .32 * height else None
+    # Keep partial observations associated so clipping cancels a turn.
+    distance = hypot(dx, dy)
+    scale = max(obs.width, previous.width)
+    if distance < scale * .8 and min(obs.width, previous.width) > scale * .55:
+        return distance / scale
+    return None
+
+
+def same_skeleton(a, b, size):
+    if not a.body or not b.body:
+        return False
+    if a.gesture != 'unknown' and b.gesture != 'unknown' and a.gesture != b.gesture:
+        return False
+    l,t,r,bottom = a.body
+    x,y,u,v = b.body
+    height = min(bottom-t, v-y)
+    shoulder_distance = hypot((a.center[0]-b.center[0])*size[0]/size[1], a.center[1]-b.center[1])
+    if shoulder_distance > .04*height or abs(a.nose_y-b.nose_y) > .035*height:
+        return False
+    overlap = max(0,min(r,u)-max(l,x))*max(0,min(bottom,v)-max(t,y))
+    union = (r-l)*(bottom-t) + (u-x)*(v-y) - overlap
+    minimum_overlap = .60 if shoulder_distance <= .025*height else .85
+    if a.view and b.view and a.view != b.view:
+        return False
+    return union > 0 and overlap > minimum_overlap*union
+
+
+def distinct_poses(observations, size):
+    # The full-frame model can return two nearly identical skeletons on one person.
+    # Prefer a usable gesture/view; leave distinct people for ambiguity checks.
+    ordered = sorted(observations, key=lambda p: (p.gesture != 'unknown', bool(p.body)), reverse=True)
+    kept = []
+    for obs in ordered:
+        if not any(same_skeleton(obs, prior, size) for prior in kept):
+            kept.append(obs)
+    return kept
 
 
 class Gestures:
-    def __init__(self):
+    def __init__(self, progress=None):
+        self.progress = progress
         self.tracks = {}
         self.serial = 0
 
     def step(self, stamp, image, observations):
+        def report(message):
+            if self.progress:
+                self.progress(stamp, message)
+
         def pixels(region):
             return tuple(round(value*scale) for value,scale in zip(region,image.size*2))
 
+        observations = distinct_poses(observations, image.size)
         completed = []
         candidates = []
         for key, track in self.tracks.items():
-            if stamp - track.seen > .75:
+            if stamp - track.seen > MAX_TRACK_GAP:
                 continue
             for i, obs in enumerate(observations):
-                distance = hypot(*(a-b for a,b in zip(obs.center, track.obs.center)))
-                scale = max(obs.width, track.obs.width)
-                if distance < scale * .8 and min(obs.width, track.obs.width) > scale * .55:
-                    candidates.append((distance / scale, key, i))
+                distance = track_distance(track.obs, obs, image.size)
+                if distance is not None:
+                    candidates.append((distance, key, i))
         # If multiple people can match the same observation (or vice versa), discard
-        # their partial rotations before association so no one can finish another turn.
+        # their pending holds before association so one person cannot confirm another's gesture.
         per_track = Counter(key for _,key,i in candidates)
         per_pose = Counter(i for _,key,i in candidates)
         ambiguous = {key for _,key,i in candidates if per_track[key]>1 or per_pose[i]>1}
@@ -234,13 +248,18 @@ class Gestures:
             else:
                 key = matched[i]
             track = self.tracks[key]
-            if key in ambiguous or stamp-track.seen > .55:
-                track.pending = None
+            if key in ambiguous:
                 track.pose = ''
-            if track.pose != obs.gesture or stamp - track.seen > .55:
+            # An uncertain wrist in one otherwise continuous view is not a lowered
+            # hand. Only an observed single-hand raise can start or confirm the hold.
+            bridge = (obs.gesture == 'unknown' and track.pose in ('left', 'right') and obs.body
+                      and obs.view in ('', '正面') and stamp-track.last_raise <= .55)
+            if stamp-track.seen > .55 or (not bridge and track.pose != obs.gesture):
                 track.pose, track.since = obs.gesture, stamp
             track.seen, track.obs = stamp, obs
-            if track.pose in ('left', 'right') and key not in ambiguous and not track.latched and stamp - track.since >= .5:
+            if obs.gesture in ('left', 'right'):
+                track.last_raise = stamp
+            if obs.gesture in ('left', 'right') and key not in ambiguous and not track.latched and stamp - track.since >= .5:
                 box = target_box(obs, image.size)
                 full = image.copy()
                 body = pixels(obs.body)
@@ -248,21 +267,15 @@ class Gestures:
                 frames = [('举手全景', stamp, thumbnail(full)), ('上身细节', stamp, image.crop(box))]
                 frames.extend((role,stamp,image.crop(pixels(region))) for role,region in
                               [('全身细节',obs.body),('下装细节',obs.legs),('鞋履细节',obs.shoes)])
-                track.pending = Turn(Event(key, stamp, frames))
+                completed.append(Event(key, stamp, frames))
                 track.latched = True
-            if track.pending:
-                result = track.pending.advance(stamp,image,obs)
-                if result == 'complete':
-                    completed.append(track.pending.event)
-                if result:
-                    track.pending = None
+                report('已识别全身单手举起，正在生成记录')
             elif track.pose == 'down' and stamp-track.since >= 1:
                 track.latched = False
         for key, track in list(self.tracks.items()):
             if track.seen != stamp:
                 track.pose = 'unknown'
-                track.pending = None
-            if stamp-track.seen > .75:
+            if stamp-track.seen > MAX_TRACK_GAP or (track.seen != stamp and not track.latched):
                 del self.tracks[key]
         return completed
 
@@ -339,11 +352,12 @@ class Detector:
             self.detail_model.close()
 
 
-def scan(source, *, stop=None, connected=None, detector_factory=Detector):
+def scan(source, *, stop=None, connected=None, progress=None, detector_factory=Detector):
     live = stop is not None
     options = dict(format='rtsp', options={'rtsp_transport':'tcp', 'allowed_media_types':'video'},
                    timeout=(5, 7)) if live else {}
-    gestures = Gestures()
+    gestures = Gestures(progress)
+    heartbeat = None
     start = None
     last = None
     live_anchor = None
@@ -384,7 +398,11 @@ def scan(source, *, stop=None, connected=None, detector_factory=Detector):
                 if last is None and connected:
                     connected()
                 last = stamp
-                yield from gestures.step(live_anchor + stamp if live else stamp, image, obs)
+                observed_at = live_anchor + stamp if live else stamp
+                if progress and (heartbeat is None or stamp - heartbeat >= 2):
+                    progress(observed_at, None)
+                    heartbeat = stamp
+                yield from gestures.step(observed_at, image, obs)
             if last is None:
                 raise ValueError('没有解码到有效画面')
             if not live and duration - last > max(1, 2 / float(stream.average_rate or 4)):

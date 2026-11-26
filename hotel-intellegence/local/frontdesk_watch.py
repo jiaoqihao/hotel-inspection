@@ -41,8 +41,17 @@ class Watchers:
             self.show(key, '正在连接举手监听')
             try:
                 url = protect(camera['secret'], decrypt=True).decode()
+                last_action = ''
+                def progress(stamp, message):
+                    nonlocal last_action
+                    clock = time.strftime('%H:%M:%S', time.localtime(stamp))
+                    if message:
+                        last_action = f' · {clock} {message}'
+                    self.show(key, f'举手监听中 · 最近分析帧 {clock}{last_action}')
+
                 with av.logging.Capture(local=True):
-                    for event in scan(url, stop=stop, connected=lambda: self.show(key, '举手监听中')):
+                    for event in scan(url, stop=stop, connected=lambda: self.show(key, '举手监听中'),
+                                      progress=progress):
                         if stop.is_set():
                             return
                         with self.patrol.connection() as db:
@@ -57,6 +66,7 @@ class Watchers:
                             db.execute('UPDATE cameras SET gesture_job=? WHERE id=?', (job, key))
                             db.execute('INSERT INTO attempts(id,camera,name,started,outcome,job) VALUES(?,?,?,?,?,?)',
                                        (job,key,camera['name'],event.stamp,'举手仪容检查排队中',job))
+                        progress(time.time(), '巡检记录已写入')
                         future.add_done_callback(lambda result, job=job: self.finished(job, result))
                 if stop.is_set():
                     return

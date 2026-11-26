@@ -1,6 +1,7 @@
 """Synthetic videos, landmarks and model observations; no hotel data or devices."""
 from concurrent.futures import Future
 from contextlib import closing, nullcontext
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -33,12 +34,15 @@ def person(gesture='left', x=.5, *, cropped=False, yaw=0, hide_far_leg=False):
         for i in range(23,33):
             points[i].visibility = .05
     if gesture == 'feet_hidden':
-        points[31].visibility = .2
+        for i in (27,29,31):
+            points[i].visibility = .2
+    if gesture == 'hidden_heel':
+        points[29].visibility = .2
     if gesture == 'clipped':
         points[32].y = 1
     if gesture == 'side':
         points[23].z = .3
-    points[15] = point(x+.12,.15 if gesture in ('both','left','upper_only') else .65)
+    points[15] = point(x+.12,.15 if gesture in ('both','left','upper_only','hidden_heel') else .65)
     points[16] = point(x-.12,.15 if gesture in ('both','right') else .65)
     if gesture == 'back':
         points[11], points[12] = points[12], points[11]
@@ -126,17 +130,16 @@ class FrontDeskTests(unittest.TestCase):
             self.assertEqual(person(pose).gesture,'unknown')
         self.assertEqual(person('back',cropped=True).gesture,'unknown')
         self.assertEqual(person('hidden').gesture,'unknown')
+        self.assertEqual(person('hidden_heel').gesture,'left')
 
     def test_full_video_and_rearm(self):
         class FakeDetector:
             def observe(self, image, millis):
-                start=millis-2000 if millis<5500 else millis-5500
-                if not 0 <= start < 2500:
-                    return [person('down')]
-                if start < 750:
-                    return [person('left' if millis<5500 else 'right')]
-                angle=[90,180,-90,0][(start-750)//500]
-                return [person('down',yaw=angle if millis<5500 else -angle)]
+                if 2000 <= millis < 4250:
+                    return [person('left')]
+                if 5500 <= millis < 8000:
+                    return [person('right')]
+                return [person('down')]
             def close(self):
                 pass
         with tempfile.TemporaryDirectory() as temp:
@@ -144,57 +147,44 @@ class FrontDeskTests(unittest.TestCase):
             test_video(path)
             events = list(scan(path, detector_factory=FakeDetector))
         self.assertEqual([(e.person,e.stamp) for e in events], [(1,2.5),(1,6)])
-        for event,first,second in ((events[0],'右侧','左侧'),(events[1],'左侧','右侧')):
-            roles=[f[0] for f in event.frames]
-            self.assertEqual([r for r in roles if r.endswith('全身')],[first+'全身','背面全身',second+'全身','正面全身'])
-            self.assertIn('背面头部',roles)
-            self.assertIn('左侧鞋履',roles)
-            self.assertIn('右侧鞋履',roles)
+        for event in events:
+            self.assertEqual([role for role,_,_ in event.frames],
+                             ['举手全景','上身细节','全身细节','下装细节','鞋履细节'])
 
-    def test_incomplete_turns_are_discarded(self):
-        image=Image.new('RGB',(320,240))
-        start=[[person()]]*3
-        def poses(angles):
-            return [[person('down',yaw=a)] for a in angles for _ in range(2)]
-        rejected=[
-            start,
-            start+poses([90,180,90,0,-90,0]),
-            start+poses([90,180])+[[]]+poses([-90,0]),
-            start+poses([90])+[[person('down',x=.48),person('down',x=.52)]]+poses([180,-90,0]),
-            start+poses([90])*25+poses([180,-90,0]),
-            start+poses([90])+[[person('clipped')]]+poses([180,-90,0]),
-            [[person(cropped=True)]]*3+poses([90,180,-90,0]),
-        ]
-        for k,sequence in enumerate(rejected):
-            tracker=Gestures()
-            events=[e for i,obs in enumerate(sequence) for e in tracker.step(i/4,image,obs)]
-            self.assertEqual(events,[],k)
-        self.assertEqual(person('down',yaw=90,hide_far_leg=True).view,'右侧')
+    def test_single_hand_requires_full_frontal_pose_and_a_hold(self):
+        image = Image.new('RGB',(320,180))
+        for pose in [person('upper_only'), person('both'), person('hidden'), person('back'), person(yaw=90)]:
+            tracker = Gestures()
+            self.assertFalse([e for i in range(8) for e in tracker.step(i/4,image,[pose])])
+        tracker = Gestures()
+        for i in range(4):
+            poses = [person(x=.48),person(x=.52)] if i > 0 else [person()]
+            self.assertFalse(tracker.step(i/4,image,poses))
 
-    def test_waist_up_raise_cannot_start_or_finish_an_inspection(self):
-        image=Image.new('RGB',(320,240))
-        hidden=person('upper_only')
-        self.assertEqual((hidden.gesture,hidden.view),('unknown','clipped'))
-        rotate=[person('down',yaw=a) for a in (90,180,-90,0) for _ in range(2)]
-        for sequence in ([hidden]*5+rotate, [person()]*3+rotate[:2]+[hidden]+rotate[2:]):
-            tracker=Gestures()
-            self.assertFalse([event for i,obs in enumerate(sequence)
-                              for event in tracker.step(i/4,image,[obs])])
-            self.assertTrue(all(track.pending is None for track in tracker.tracks.values()))
+    def test_one_uncertain_frame_and_duplicate_do_not_lose_the_hand(self):
+        image = Image.new('RGB',(320,180))
+        tracker = Gestures()
+        raised = person()
+        uncertain = replace(raised, gesture='unknown')
+        duplicate = replace(raised, center=(.501,.4))
+        sequence = [[raised], [uncertain], [raised,duplicate], [raised]]
+        events = [e for i,obs in enumerate(sequence) for e in tracker.step(i/4,image,obs)]
+        self.assertEqual([e.stamp for e in events],[.5])
 
     def test_complete_turn_evidence_routed_on_first_check_and_retest(self):
         from local import vision_api as api
         image=Image.new('RGB',(480,720),'navy')
-        tracker=Gestures()
-        sequence=[person()]*3+[person('down',yaw=angle) for angle in (90,180,-90,0) for _ in range(2)]
-        event,=[e for i,obs in enumerate(sequence) for e in tracker.step(i/4,image,[obs])]
+        # Evidence layout of a previously stored version 2 turn report.
+        roles = ['举手全景','上身细节','全身细节','下装细节','鞋履细节',
+                 '右侧头部','右侧鞋履','背面头部','背面鞋履','左侧头部','左侧鞋履','转回正面上身','正面鞋履']
+        event = Event(1, 0, [(role,i/4,image) for i,role in enumerate(roles)])
         with tempfile.TemporaryDirectory() as temp:
             folder=Path(temp)
             stored=api.store_event(folder,event,'sample',live=True)
             report=dict(state='排队中',scene='前台接待',standard='发网',checks=['仪容仪表'],hairStyle='收腰西装',
                         tieStyle='藏蓝西装',gestureVersion=2,captureEvent=stored,groups=[])
             with (patch.object(api,'ensure_model'), patch.object(api,'save'),patch.object(api,'SLOTS'),
-                  patch.object(api,'check_person',return_value=('扎发款',[])) as upper,
+                  patch.object(api,'check_person',return_value=('女士规范',[])) as upper,
                   patch.object(api,'check_lower_body',return_value={'status':'发现异常','level':'取证缺失'}) as lower):
                 api.run(folder,report,False)
                 api.retest_saved(folder,report,{})
@@ -229,7 +219,7 @@ class FrontDeskTests(unittest.TestCase):
         image = Image.new('RGB',(100,100))
         for t in (0, .6, 1.2):
             self.assertFalse(tracker.step(t,image,[person()]))
-        self.assertTrue(all(t.pending is None for t in tracker.tracks.values()))
+        self.assertTrue(all(not t.latched for t in tracker.tracks.values()))
 
     def test_empty_and_interrupted_scans_have_distinct_reports(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, HOTEL_VOICE_DATA=directory):
@@ -254,44 +244,53 @@ class FrontDeskTests(unittest.TestCase):
             image = Image.new('RGB',(120,160),'white')
             image.paste('navy',(20,20,100,140))
             image.save(path)
-            def results(choices, tie='藏青尖领', hair='红色立领'):
-                replies = [{'choice':letter} for letter in choices]
-                with (patch('local.frontdesk_review.ask_vision', side_effect=replies),
-                      patch('local.frontdesk_review.visible_badge_area',return_value=True)):
-                    style, rows = check_person([path],tie,hair,'')
-                return {row['name']:row for row in rows}
-            tie = results('BACB')
-            self.assertEqual(tie['领带']['status'],'发现异常')
-            self.assertEqual((tie['胸牌']['status'],tie['胸牌']['level']),('发现异常','取证缺失'))
+            def results(choices):
+                with (patch('local.frontdesk_review.choose', side_effect=list(choices)),
+                      patch('local.frontdesk_review.visible_badge_area', return_value=True)):
+                    style, rows = check_person([path], '')
+                return style, {row['name']: row for row in rows}
+            style, tie = results('AACB')
+            self.assertEqual(style, '男士规范')
+            self.assertEqual(tie['工服']['status'], '发现异常')
+            self.assertEqual(tie['领带']['status'], '发现异常')
             self.assertNotIn('扎发', tie)
-            self.assertEqual(results('BC','','')['工服']['status'],'未见异常')
-            self.assertEqual(results('CC','','')['领带或扎发']['level'],'取证缺失')
-            self.assertIn('短发免扎',results('BBABB')['扎发']['detail'])
-            hair = results('BBBC')
-            self.assertEqual(hair['胸牌']['status'],'发现异常')
-            self.assertEqual(hair['扎发']['status'],'发现异常')
-            self.assertEqual(results('AC')['工服']['status'],'发现异常')
+            self.assertEqual(tie['胸牌']['level'], '取证缺失')
+            style, hair = results('BBBC')
+            self.assertEqual(style, '女士规范')
+            self.assertEqual(hair['扎发']['status'], '发现异常')
+            self.assertNotIn('领带', hair)
+            self.assertIn('短发免扎', results('BBBB')[1]['扎发']['detail'])
+            self.assertEqual(results('CBC')[1]['领带或扎发']['level'], '取证缺失')
 
-    def test_blazer_passes_independently_of_undershirt_and_style(self):
+    def test_black_jacket_and_rectangular_badge_are_independent(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp,'upper.png')
+            im = Image.new('RGB',(160,240),(42,65,108))
+            im.paste('white',(62,50,80,200))
+            im.save(path)
+            with (patch('local.frontdesk_review.visible_badge_area',return_value=True),
+                  patch('local.frontdesk_review.choose',side_effect=list('ABBBA')) as model):
+                _, rows = check_person([path], '', jacket_styles=('黑色西装上衣','黑色西装上衣'))
+            self.assertEqual((rows[0]['status'],rows[1]['status']),('发现异常','发现异常'))
+            self.assertIn('蓝色',rows[0]['detail'])
+            self.assertIn('未见',rows[1]['detail'])
+            badge_call = model.call_args_list[3]
+            self.assertIn('round lapel pin',badge_call.args[1])
+            self.assertNotEqual(badge_call.args[0],model.call_args_list[1].args[0])
+
+    def test_blazer_and_hairnet_have_independent_outcomes(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp,'crop.jpg')
             image = Image.new('RGB',(120,160),'white')
             image.paste('navy',(20,20,100,140))
             image.save(path)
-            # Legacy white-shirt descriptions must not introduce an inner-layer check.
-            with (patch('local.frontdesk_review.visible_badge_area',return_value=False),
-                  patch('local.frontdesk_review.choose',side_effect=list('BBBBD'))):
-                style,rows = check_person([path],'藏蓝西装、白衬衫','黑色收腰西装、白衬衫','发网盘起',['full'])
-            self.assertEqual(style,'扎发款')
+            with (patch('local.frontdesk_review.visible_badge_area', return_value=False),
+                  patch('local.frontdesk_review.choose', side_effect=list('BBBD'))):
+                style, rows = check_person([path], '发网盘起', ['full'])
+            self.assertEqual(style,'女士规范')
             self.assertEqual([r['name'] for r in rows],['工服','胸牌','扎发'])
             self.assertEqual(rows[0]['status'],'未见异常')
-            self.assertEqual(rows[-1]['status'],'未见异常')
             self.assertIn('未显示发网',rows[-1]['detail'])
-            with (patch('local.frontdesk_review.visible_badge_area',return_value=False),
-                  patch('local.frontdesk_review.choose',side_effect=list('BBCB'))):
-                style,rows = check_person([path],'藏蓝西装、白衬衫','黑色收腰西装、白衬衫','发网盘起',['full'])
-            self.assertEqual(style,'款式不明')
-            self.assertEqual(rows[0]['status'],'未见异常')
 
     def test_pants_compare_only_configured_lower_garment(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -314,14 +313,20 @@ class FrontDeskTests(unittest.TestCase):
             image = Image.new('RGB',(72,28),'navy')
             image.paste('silver',(24,20,50,28))
             image.save(path)
-            for choice,expected in [('A','未见异常'),('B','发现异常'),('C','发现异常'),('D','发现异常'),('E','发现异常')]:
-                with patch('local.frontdesk_review.choose',return_value=choice) as model:
+            for choices,expected,level in [
+                ('AC','未见异常',''), ('AB','发现异常','需要复核'), ('AA','发现异常','需要复核'),
+                ('B','发现异常','需要复核'), ('C','发现异常','需要复核'),
+                ('E','发现异常','取证缺失'), ('DC','发现异常','取证缺失'),
+                ('DAC','未见异常',''), ('AD','发现异常','取证缺失'),
+            ]:
+                with self.subTest(choices=choices), patch('local.frontdesk_review.choose',side_effect=list(choices)):
                     row=check_lower_body([path],'皮鞋','',roles=['左侧鞋履'])
-                self.assertEqual(row['status'],expected)
-                self.assertEqual(row['level']=='取证缺失',choice=='E')
-                self.assertEqual(model.call_count,1)
-                self.assertIn('左侧鞋履',model.call_args.args[1])
-            with patch('local.frontdesk_review.choose',return_value='A') as model:
+                    self.assertEqual((row['status'],row['level']),(expected,level))
+            with patch('local.frontdesk_review.choose',side_effect=list('BBAAC')) as model:
+                # Two front crops collectively count once, two other angles corroborate leather.
+                row=check_lower_body([path]*4,'皮鞋','',roles=['鞋履细节','正面鞋履','左侧鞋履','右侧鞋履'])
+                self.assertEqual(row['status'],'未见异常')
+            with patch('local.frontdesk_review.choose',side_effect=list('AC')) as model:
                 self.assertEqual(check_lower_body([],'皮鞋','',['full'])['status'],'未见异常')
                 self.assertEqual(model.call_args.args[0],['full'])
             with patch('local.frontdesk_review.choose') as model:
@@ -353,8 +358,8 @@ class FrontDeskTests(unittest.TestCase):
             image.paste('blue',(10,30,90,130))
             image.save(path)
             with (patch('local.frontdesk_review.visible_badge_area',return_value=False),
-                  patch('local.frontdesk_review.choose',side_effect=['A','B'])):
-                _, rows=check_person([path],'深蓝西装白衬衫','黑色西装白衬衫','')
+                  patch('local.frontdesk_review.choose',side_effect=['C','A','B'])):
+                _, rows=check_person([path],'')
             self.assertEqual([x['status'] for x in rows[:2]],['发现异常','发现异常'])
             self.assertEqual([x['level'] for x in rows[:2]],['需要复核','取证缺失'])
 
@@ -405,8 +410,9 @@ class FrontDeskTests(unittest.TestCase):
         started = threading.Event()
         disconnected = threading.Event()
         accepted = []
-        def stream(url, *, stop, connected):
+        def stream(url, *, stop, connected, progress):
             connected()
+            progress(time.time(), None)
             started.set()
             yield Event(1,time.time(),[])
             stop.wait(6)
@@ -431,7 +437,8 @@ class FrontDeskTests(unittest.TestCase):
                     time.sleep(.02)
                 self.assertEqual(accepted,['深色西装'])
                 self.assertEqual(state['cameras'][0]['gesture_job'],'synthetic-job')
-                self.assertEqual(state['cameras'][0]['gestureStatus'],'举手监听中')
+                self.assertIn('最近分析帧',state['cameras'][0]['gestureStatus'])
+                self.assertIn('巡检记录已写入',state['cameras'][0]['gestureStatus'])
                 with service.connection() as db:
                     db.execute('UPDATE cameras SET enabled=0')
                 service.watchers.wake.set()
