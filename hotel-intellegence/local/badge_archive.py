@@ -1,5 +1,6 @@
 """Local badge archive, customer links and append-only finding reviews."""
 
+from pathlib import Path
 from datetime import datetime, timezone
 import json
 from typing import Literal
@@ -15,7 +16,7 @@ GROUPS = ("conclusions", "checks", "risks", "insights", "todos", "flow")
 
 def migrate(db):
     version = db.execute("PRAGMA user_version").fetchone()[0]
-    if version > 6:
+    if version > 7:
         raise RuntimeError("胸牌档案数据库版本高于本程序")
     if version == 0:
         db.executescript("""
@@ -121,6 +122,10 @@ def migrate(db):
                 if after != before:
                     db.execute("UPDATE records SET data=? WHERE id=?", (after, key))
             db.execute("PRAGMA user_version=6")
+
+
+    if version < 7:
+        db.executescript(Path(__file__).with_name("wecom_schema.sql").read_text(encoding="utf-8"))
 
 
 class Customer(BaseModel):

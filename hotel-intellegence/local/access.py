@@ -102,6 +102,10 @@ def allowed(user, path, method):
         "/api/ping",
     ):
         return True
+    if path.startswith("/api/badge/wecom/"):
+        if method == "GET" or path.startswith("/api/badge/wecom/reviews/") or path in ("/api/badge/wecom/prepare","/api/badge/wecom/message-preview"):
+            return role in SUPERVISORS
+        return role == "管理员"
     if path.startswith("/api/badge/devices"):
         if method == "GET" and path != "/api/badge/devices/catalog":
             return role in QUALITY

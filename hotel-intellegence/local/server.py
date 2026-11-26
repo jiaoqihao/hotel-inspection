@@ -24,7 +24,8 @@ import requests
 import sherpa_onnx
 from starlette.concurrency import run_in_threadpool
 from local.badge_sync import BadgeSync, SyncError
-from local import access, badge_archive
+from local import access, badge_archive, badge_scripts, wecom_api
+from local.wecom_delivery import Delivery
 from local.badge_analysis import MODEL, REPORT_VERSION, SCENES, analyze_segments
 from local.platform_db import migrate, database
 from local.phone import PhoneWorker, router as phone_router
@@ -122,20 +123,25 @@ async def lifespan(app):
     badge_sync.stop.clear()
     sync_thread = threading.Thread(target=badge_sync.run, name='badge-sync', daemon=True)
     sync_thread.start()
+    delivery.start()
     alerts=asyncio.create_task(duty_clock(app))
     try:
         yield
     finally:
+        delivery.stop.set()
         alerts.cancel()
         await asyncio.gather(alerts,return_exceptions=True)
         badge_sync.stop.set()
         badge_sync.wake.set()
         await asyncio.to_thread(sync_thread.join)
+        await asyncio.to_thread(delivery.close)
         scheduler.stop()
         phones.stop()
 
 
 app = FastAPI(title='栖鉴 · 酒店智能巡检与服务分析', lifespan=lifespan)
+delivery = Delivery(connection, edit_record)
+app.include_router(wecom_api.router(delivery))
 app.include_router(patrol_router)
 app.include_router(access.router)
 app.include_router(badge_archive.router(connection,edit_record))
@@ -309,6 +315,11 @@ def store_recording(chunks, filename, employee, scene, note, language, diarizati
                     WHERE d.number=? AND d.source=?''',(item['badge'],item['source'])).fetchone()
                 if device:
                     item['deviceId'] = device['id']
+            stamp = badge_scripts.recording_time(recordedAt)
+            if stamp and item.get('deviceId') and not employee.strip():
+                name = badge_scripts.wearer(db, item['deviceId'], stamp.date().isoformat())
+                if name:
+                    item.update(employee=name, employeeSource='device')
             db.execute('INSERT INTO records VALUES(?,?)', (id, json.dumps(item, ensure_ascii=False)))
     except Exception:
         path.unlink(missing_ok=True)
@@ -406,7 +417,7 @@ def retranscribe(id: str, body: RetrySpeech):
         raise HTTPException(503,'本地声纹模型尚未就绪')
     if sum(r['status'] in ('queued','diarizing','transcribing','analyzing') for r in all_records())>=5:
         raise HTTPException(429,'队列已满，请稍后重试')
-    child={k:v for k,v in item.items() if k in ('extension','size','duration','employee','sceneHint','note','source','badge','recordedAt','test','deviceId')}
+    child={k:v for k,v in item.items() if k in ('extension','size','duration','employee','sceneHint','note','source','badge','recordedAt','test','wasMarkedTest','employeeSource','deviceId')}
     child.update(id=uuid.uuid4().hex,filename=Path(item['filename']).stem+('-双人对话复核' if body.speakerCount==2 else '-对话复核')+item['extension'],sourceId=id,createdAt=datetime.now(timezone.utc).isoformat(),status='queued',progress=0,segments=[],report=None,reviewed=False,language=body.language,diarization=body.diarization,speakerCount=body.speakerCount,asrRevision=3)
     shutil.copyfile(AUDIO/(id+item['extension']),AUDIO/(child['id']+child['extension']))
     save(child)
@@ -427,6 +438,8 @@ def update_metadata(id: str, body: RecordingMetadata):
     with edit_record(id) as (_, item):
         if item['status'] in ('queued', 'diarizing', 'transcribing', 'analyzing'):
             raise HTTPException(409, '请等待分析结束后编辑')
+        if body.employee.strip() != item.get('employee'):
+            item['employeeSource'] = 'manual'
         item.update(filename=name, employee=body.employee.strip() or '未指定员工', note=body.note.strip())
     return item
 
@@ -501,6 +514,14 @@ def process(id):
         # Never expose transcript contents in errors or logs.
         update(id, status='error', error=str(exc)[:300])
 
+    else:
+        # Daily script checks can retry from this transcript without invalidating the scene report.
+        try:
+            badge_scripts.prepare_record(connection, edit_record, record(id))
+        except (ValueError, RuntimeError, requests.RequestException, HTTPException):
+            pass
+
+
 def ensure_queue_space(db):
     active = db.execute("""SELECT count(*) FROM records WHERE json_extract(data,'$.status')
                         IN ('queued','diarizing','transcribing','analyzing')""").fetchone()[0]
@@ -521,7 +542,7 @@ def deepseek_copy(id: str):
                 return json.loads(prior[0])
             ensure_queue_space(db)
             child = {k: original[k] for k in ('extension','size','duration','employee','sceneHint','note',
-                     'source','badge','recordedAt','test','deviceId','language','diarization','speakerCount',
+                     'source','badge','recordedAt','test','wasMarkedTest','employeeSource','deviceId','language','diarization','speakerCount',
                      'asrRevision','segments','speakers','speakerTurns','quality') if k in original}
             child.update(id=child_id, sourceId=id, deepseekSource=id, deepseekVersion=REPORT_VERSION, filename=Path(original['filename']).stem+' · DeepSeek 分析',
                          createdAt=datetime.now(timezone.utc).isoformat(), status='queued', progress=0, report=None, reviewed=False)

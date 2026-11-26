@@ -172,6 +172,11 @@ class Directory:
                     db.execute("""UPDATE badge_devices SET name=?,position=?,test=?,enabled=?,retired=?,
                                   revision=revision+1 WHERE id=?""",
                                (body.name.strip(),body.position.strip(),False,body.enabled,body.retired,device_id))
+                if body.replacement or body.retired and not row['retired']:
+                    from local.badge_scripts import local_day
+                    end = (local_day() + timedelta(days=1)).isoformat()
+                    db.execute('DELETE FROM badge_wearers WHERE device=? AND since>=?',(device_id,end))
+                    db.execute("INSERT OR REPLACE INTO badge_wearers VALUES(?,?,'')",(device_id,end))
                 mirror(db,row['app'])
             self.sync.wake.set()
             return self.rows()

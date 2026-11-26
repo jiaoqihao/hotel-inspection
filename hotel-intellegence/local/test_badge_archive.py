@@ -63,7 +63,7 @@ class BadgeArchiveTests(unittest.TestCase):
             db.commit()
             badge_archive.migrate(db)
             badge_archive.migrate(db)
-            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 6)
+            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 7)
         self.client = TestClient(server.app, headers={"x-local-token": server.TOKEN})
         self.addCleanup(self.client.close)
 
