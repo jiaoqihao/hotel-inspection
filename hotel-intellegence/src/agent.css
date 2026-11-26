@@ -325,13 +325,141 @@
   color: #698271;
   font-weight: 400;
 }
-.ai-answer p {
+.ai-answer {
+  min-width: 0;
+  white-space: normal;
+  color: #2d443a;
   font-size: 14px;
   line-height: 1.85;
-  margin: 6px 0;
 }
-.ai-answer h3 {
-  margin: 12px 0 5px;
+.ai-plain {
+  white-space: pre-wrap;
+}
+.ai-answer p {
+  margin: 0.65em 0;
+  line-height: inherit;
+}
+.ai-answer :is(h1, h2, h3, h4, h5, h6) {
+  color: #1c4235;
+  line-height: 1.45;
+  margin: 1.25em 0 0.4em;
+  letter-spacing: 0.01em;
+}
+.ai-answer h1 {
+  font-size: 1.38em;
+}
+.ai-answer h2 {
+  font-size: 1.23em;
+}
+.ai-answer :is(h3, h4, h5, h6) {
+  font-size: 1.1em;
+}
+.ai-answer strong {
+  color: #254836;
+  font-weight: 650;
+}
+.ai-answer :is(ul, ol) {
+  margin: 0.5em 0;
+  padding-inline-start: 1.65em;
+}
+.ai-answer li + li {
+  margin-top: 0.22em;
+}
+.ai-answer li::marker {
+  color: #50775f;
+}
+.ai-answer blockquote {
+  margin: 0.9em 0;
+  padding: 0.45em 1em;
+  border-left: 3px solid #96b6a1;
+  border-radius: 0 6px 6px 0;
+  background: #f4f7f3;
+  color: #476154;
+}
+.ai-answer blockquote p {
+  margin: 0.25em 0;
+}
+.ai-answer hr {
+  margin: 1.25em 0;
+  border: 0;
+  border-top: 1px solid var(--ai-line);
+}
+.ai-answer a {
+  color: #25654d;
+  text-underline-offset: 3px;
+}
+.ai-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.9em 0;
+  border: 1px solid #d7e3da;
+  border-radius: 8px;
+  scrollbar-width: thin;
+}
+.ai-answer table {
+  width: 100%;
+  white-space: normal;
+  font-size: 0.95em;
+  line-height: 1.55;
+}
+.ai-answer :is(th, td) {
+  min-width: 5.5em;
+  padding: 0.65em 0.9em;
+  vertical-align: top;
+  border: 0;
+  border-bottom: 1px solid #e5ece6;
+  font-variant-numeric: tabular-nums;
+}
+.ai-answer th {
+  background: #eaf2ec;
+  color: #355b46;
+  font-weight: 650;
+}
+.ai-answer td {
+  color: inherit;
+}
+.ai-answer tbody tr:nth-child(even) {
+  background: #f8faf8;
+}
+.ai-answer tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ai-answer :not(pre) > code {
+  padding: 0.12em 0.32em;
+  border-radius: 4px;
+  background: #eff3ef;
+  font-size: 0.92em;
+}
+.ai-answer pre,
+.ai-answer .katex-block {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0.9em 0;
+  padding: 0.9em 1.1em;
+  border: 1px solid var(--ai-line);
+  border-radius: 8px;
+  scrollbar-width: thin;
+}
+.ai-answer pre {
+  background: #f7f9f7;
+  font-size: 0.92em;
+  line-height: 1.6;
+}
+.ai-answer .katex-block {
+  background: #f7faf6;
+  color: #264b36;
+}
+.ai-answer .katex-display {
+  margin: 0;
+}
+.ai-answer .katex {
+  font-size: 1.1em;
+}
+.ai-answer > :first-child {
+  margin-top: 0;
+}
+.ai-answer > :last-child {
+  margin-bottom: 0;
 }
 .ai-open-ref {
   margin-top: 12px;

@@ -117,12 +117,41 @@ def verify(root, screens):
             if "巡检" in q:
                 return tool("vision_report", dict(job_id=job))
             return tool("recording_module", dict(recording_id=key, module="原话撰写"))
-        if "岗位" in q:
+        if "排版测试" in q:
+            answer = """| 一号 | 二号 | 三号 | 四号 | 五号 | 六号 | 七号 | 八号 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+
+$$
+x^2 + y^2 = z^2
+$$
+
+~~~text
+示例 [1] 与 $x$
+~~~
+
+普通文本 <em>测试</em>。"""
+        elif "岗位" in q:
             answer = "已将培训挂牌 TEST-01 的岗位由餐厅改为前台。[1]"
         elif "巡检" in q:
             answer = "昨天 21:10，测试点位留存了 1 组巡检画面。[1]\n本次取样仅覆盖后场门口。其他时段缺少画面，仍需结合现场记录复核。"
         else:
-            answer = "昨天的测试录音中，前台在问候后主动确认了客人的预订情况。[1]\n\n### 话术表现\n员工在 00:03 说：“您好，请问您有预订吗？”这句话包含问候和需求确认，适用于入住接待的开场。[1]\n\n### 样本范围\n本次仅检查 1 段测试录音。后续是否核验订单、说明早餐时间或完成房卡交接，还需要其他片段支持。"
+            answer = r"""昨天的 **1 段测试录音** 中，前台在问候后主动确认了客人的预订情况。
+
+### 话术表现
+| 接待环节 | 员工原话 | 依据 |
+| :--- | :--- | ---: |
+| 主动问候 | 您好 | [1] |
+| 确认预订 | 请问您有预订吗？ | 【1】 |
+
+### 样本覆盖
+设 $n$ 为测试录音数，\(k\) 为含主动问候的录音数。
+
+\[
+\frac{k}{n} \times 100\% = \frac{1}{1} \times 100\% = 100\%
+\]
+
+> 本次仅检查一段测试录音，覆盖率仅描述该样本。"""
         if on_text:
             on_text(answer[:12])
             await asyncio.sleep(0.2)
@@ -186,7 +215,12 @@ def verify(root, screens):
 
                 capture("desktop")
                 ask("请分析昨天员工的测试话术。")
-                page.locator(".ai-cite").first.click()
+                reply = page.locator(".ai-answer").last
+                expect(reply.locator("tbody tr")).to_have_count(2)
+                expect(reply.locator("math")).to_have_count(3)
+                expect(reply.locator(".katex-display mfrac")).to_have_count(2)
+                expect(reply.locator("blockquote")).to_contain_text("样本")
+                reply.locator("td .ai-cite").last.click()
                 audio = page.locator(".ai-ref-detail audio")
                 expect(audio).to_be_visible()
                 page.wait_for_function(
@@ -219,6 +253,16 @@ def verify(root, screens):
                 page.get_by_role("button", name="历史会话").click()
                 page.locator(".ai-history>button").first.click()
                 expect(page.locator(".ai-answer").last).to_contain_text("前台")
+                expect(page.locator(".ai-answer table")).to_have_count(1)
+                ask("排版测试：请展示公式 $x^2$ 和宽表。")
+                expect(page.locator(".ai-user").last.locator("math")).to_have_count(1)
+                sample = page.locator(".ai-answer").last
+                expect(sample.locator("pre code")).to_have_text("示例 [1] 与 $x$\n")
+                expect(sample.locator(".ai-cite, em")).to_have_count(0)
+                expect(sample.locator(".katex-display")).to_have_count(1)
+                page.set_viewport_size(dict(width=390, height=844))
+                assert sample.locator(".ai-table-wrap").evaluate("el => el.scrollWidth > el.clientWidth")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 browser.close()
             print(
                 "PASS desktop, mobile, history, synthetic camera and audio evidence, device update"
