@@ -14,6 +14,8 @@ from local.platform_db import database, migrate
 
 ORIGIN = os.environ.get("HOTEL_STORE_ORIGIN", "").rstrip("/")
 STORE = bool(ORIGIN)
+COOKIE_PATH = os.environ.get("HOTEL_STORE_COOKIE_PATH", "/")
+COOKIE_NAME = "hotel_session" if COOKIE_PATH == "/" else "qijian_session"
 if STORE and (
     not ORIGIN.startswith("https://")
     or urlsplit(ORIGIN).path
@@ -74,7 +76,7 @@ def identity(request):
             "phone": phone_permissions("管理员"),
         }
     token = hashlib.sha256(
-        request.cookies.get("hotel_session", "").encode()
+        request.cookies.get(COOKIE_NAME, "").encode()
     ).hexdigest()
     with database() as db:
         row = db.execute(
@@ -179,8 +181,9 @@ def login(body: Login, response: Response):
             ),
         )
     response.set_cookie(
-        "hotel_session",
+        COOKIE_NAME,
         token,
+        path=COOKIE_PATH,
         httponly=True,
         secure=True,
         samesite="strict",
@@ -191,11 +194,11 @@ def login(body: Login, response: Response):
 
 @router.post("/logout")
 def logout(request: Request, response: Response):
-    key = hashlib.sha256(request.cookies.get("hotel_session", "").encode()).hexdigest()
+    key = hashlib.sha256(request.cookies.get(COOKIE_NAME, "").encode()).hexdigest()
     with database() as db:
         db.execute("DELETE FROM sessions WHERE token=?", (key,))
     response.delete_cookie(
-        "hotel_session", secure=True, httponly=True, samesite="strict"
+        COOKIE_NAME, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict"
     )
     return {"ok": True}
 

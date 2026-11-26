@@ -26,7 +26,7 @@ export function Store({
   } | null>(null);
   const [message, setMessage] = useState("");
   const refresh = () =>
-    request<{ user: User | null; store: boolean }>("/api/session")
+    request<{ user: User | null; store: boolean }>("api/session")
       .then(setState)
       .catch((e) => setMessage(e.message));
   useEffect(() => {
@@ -36,7 +36,7 @@ export function Store({
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.currentTarget));
     try {
-      await request("/api/session/login", {
+      await request("api/session/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -101,7 +101,7 @@ export function Overview({
   useEffect(() => {
     let active = true;
     const refresh = () =>
-      request<Record<string, number>>("/api/overview")
+      request<Record<string, number>>("api/overview")
         .then((v) => {
           if (active) {
             setCounts(v);
@@ -121,7 +121,7 @@ export function Overview({
   useEffect(() => {
     let active = true;
     if (report)
-      void request<Record<string, Record<string, number>>>("/api/reports")
+      void request<Record<string, Record<string, number>>>("api/reports")
         .then(data => { if (active) { setGroups(data); setReportsReady(true); setReportError(""); } })
         .catch((e) => active && setReportError(e.message));
     return () => { active = false; };

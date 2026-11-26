@@ -30,14 +30,14 @@ export default function Patrol({token, openReport}:{token:string; openReport:(id
   const [batch,setBatch] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
   useEffect(()=>{
-    fetch('/api/vision/status').then(r=>r.json()).then(x=>setScenes(Object.keys(x.profiles))).catch(()=>{});
+    fetch('api/vision/status').then(r=>r.json()).then(x=>setScenes(Object.keys(x.profiles))).catch(()=>{});
   },[]);
   useEffect(()=>{
     let alive=true;
     let timer:ReturnType<typeof setTimeout>;
     async function refresh(){
       try {
-        const r=await fetch('/api/patrol');
+        const r=await fetch('api/patrol');
         if(!r.ok) throw Error();
         const result=await r.json();
         if(alive){setData(result);setOffline(false);}
@@ -54,7 +54,7 @@ export default function Patrol({token, openReport}:{token:string; openReport:(id
     setBatch(false);setRemoving('');setFeedback('');
   }
   async function mutate(path:string,method:string,body?:unknown){
-    const r=await fetch('/api/patrol/cameras'+path,{method,headers:{'x-local-token':token,'Content-Type':'application/json'},
+    const r=await fetch('api/patrol/cameras'+path,{method,headers:{'x-local-token':token,'Content-Type':'application/json'},
       body:body===undefined?undefined:JSON.stringify(body)});
     if(!r.ok){const x=await r.json().catch(()=>({}));throw Error(typeof x.detail==='string'?x.detail:'操作失败，请重试');}
   }
