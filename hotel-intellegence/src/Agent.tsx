@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   ArrowUp,
   ArrowUpRight,
@@ -22,6 +22,8 @@ import {
 import { WorkHeading } from './Workspace';
 import { exportHTML } from './export';
 import './agent.css';
+
+const MarkdownReply = lazy(() => import('./MarkdownReply'));
 
 type Info = {
   kind: string;
@@ -151,31 +153,6 @@ function Mark() {
       <i />
       <i />
     </span>
-  );
-}
-function formatLine(text: string, refs: Info[], choose: (i: number) => void) {
-  return text.split(/(\[\d+\]|【\d+】|\*\*[^*]+\*\*)/g).map((s, i) => {
-    if (s.startsWith('**')) return <strong key={i}>{s.slice(2, -2)}</strong>;
-    const n = /^[\[【](\d+)[】\]]$/.exec(s);
-    if (n && refs[+n[1] - 1])
-      return (
-        <button className="ai-cite" key={i} onClick={() => choose(+n[1] - 1)} aria-label={'查看证据 ' + n[1]}>
-          {n[1]}
-        </button>
-      );
-    return s;
-  });
-}
-function Reply({ message, choose }: { message: Message; choose: (i: number) => void }) {
-  return (
-    <div className="ai-answer">
-      {message.text.split('\n').map((line, i) => {
-        if (!line.trim()) return null;
-        if (/^#{1,4}\s/.test(line))
-          return <h3 key={i}>{formatLine(line.replace(/^#+\s*/, ''), message.evidence, choose)}</h3>;
-        return <p key={i}>{formatLine(line, message.evidence, choose)}</p>;
-      })}
-    </div>
   );
 }
 async function api(path: string, token: string, method = 'GET', body?: unknown) {
@@ -658,21 +635,27 @@ export default function Agent({ token }: { token: string }) {
               >
                 {rows.map((m) => (
                   <article key={m.id} className={'ai-msg ai-' + m.role}>
-                    {m.role === 'user' ? (
-                      <p>{m.text}</p>
-                    ) : (
+                    {m.role === 'assistant' && (
+                      <div className="ai-by">
+                        <Mark />
+                        栖鉴
+                        {m.state === 'running' && (
+                          <small>
+                            <LoaderCircle size={12} className="ai-spin" />
+                            {m.progress || '正在连接'}
+                          </small>
+                        )}
+                      </div>
+                    )}
+                    <Suspense fallback={<div className="ai-answer ai-plain">{m.text}</div>}>
+                      <MarkdownReply
+                        text={m.text}
+                        evidenceCount={m.evidence.length}
+                        choose={(i) => choose(m.id, i)}
+                      />
+                    </Suspense>
+                    {m.role === 'assistant' && (
                       <>
-                        <div className="ai-by">
-                          <Mark />
-                          栖鉴
-                          {m.state === 'running' && (
-                            <small>
-                              <LoaderCircle size={12} className="ai-spin" />
-                              {m.progress || '正在连接'}
-                            </small>
-                          )}
-                        </div>
-                        <Reply message={m} choose={(i) => choose(m.id, i)} />
                         {m.state === 'interrupted' && <p>服务重启中断了本次回答，请核对已有回执。</p>}
                         {!!m.evidence.length && (
                           <button className="ai-open-ref" onClick={() => choose(m.id, 0)}>
