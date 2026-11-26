@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 import requests
 
 from local.setup_vision import FILES, MODEL, PROJECTOR
+from local.frontdesk_pose import CHECK, NO_EVENT, SCENE, pose_ready, scan
+from local.frontdesk_review import check_person
 from local.vision_model import IMAGE, VIDEO, PROFILES, URL, encoded_image, inspect_group, media_groups
 
 router = APIRouter(prefix='/api/vision')
@@ -117,12 +119,46 @@ def ensure_model():
     raise ValueError('视觉模型启动超时，请重新分析。')
 
 
+def store_event(folder, event, prefix, live=False):
+    frames = []
+    for i, (role, stamp, image) in enumerate(event.frames):
+        filename = f'{prefix}-{i}.jpg'
+        image.save(folder / filename, quality=94)
+        frames.append(dict(file=filename, seconds=round(stamp - event.stamp if live else stamp, 3), role=role))
+    return dict(person=event.person, seconds=frames[0]['seconds'], frames=frames)
+
+
+def inspect_event(folder, report, event):
+    ensure_model()
+    crops = [folder / frame['file'] for frame in event['frames'] if frame['role'] != '举手全景']
+    style, findings = check_person(crops, report['tieStyle'], report['hairStyle'], report['standard'])
+    return dict(frames=event['frames'], findings=findings,
+                gesture=dict(person=event['person'], seconds=event['seconds'], style=style))
+
+
 def run(folder, report, manual=True):
     try:
         report.update(state='分析中', error='')
         save(folder, report)
-        ensure_model()
-        windows = () if 'captureFrames' in report else media_groups(folder / ('source' + report['extension']), report['interval'])
+        checks = report['checks']
+        if report.get('gestureVersion') and 'captureEvent' not in report:
+            source = folder / ('source' + report['extension'])
+            count = 0
+            for idx, event in enumerate(scan(source)):
+                stored = store_event(folder, event, f'gesture-{idx}')
+                report['groups'].append(inspect_event(folder, report, stored))
+                count += 1
+                save(folder, report)
+            report['gestureCount'] = count
+            checks = [name for name in checks if name != CHECK]
+        if 'captureEvent' in report:
+            report['groups'].append(inspect_event(folder, report, report['captureEvent']))
+            report['gestureCount'] = 1
+            checks = []
+        if checks:
+            ensure_model()
+        windows = (media_groups(folder / ('source' + report['extension']), report['interval'])
+                   if checks and 'captureFrames' not in report else ())
         if 'captureFrames' in report:
             frames = report['captureFrames']
             findings = inspect_group(report['checks'], [folder / f['file'] for f in frames],
@@ -137,10 +173,10 @@ def run(folder, report, manual=True):
                 image.save(target, quality=90)
                 paths.append(target)
                 frames.append({'file': name, 'seconds': stamp})
-            findings = inspect_group(report['checks'], paths, [f['seconds'] for f in frames], report['standard'])
+            findings = inspect_group(checks, paths, [f['seconds'] for f in frames], report['standard'])
             report['groups'].append({'frames': frames, 'findings': findings})
             save(folder, report)
-        if not report['groups']:
+        if not report['groups'] and report.get('gestureCount') != 0:
             raise ValueError('没有解码到有效画面')
         report['state'] = '已完成'
     except Exception as exc:
@@ -161,6 +197,25 @@ def run(folder, report, manual=True):
     return report['state']
 
 
+def submit_event(camera, event):
+    job = uuid.uuid4().hex
+    folder = STORE / job
+    folder.mkdir()
+    try:
+        captured = datetime.fromtimestamp(event.stamp, timezone.utc)
+        report = dict(id=job, model=MODEL_NAME, created=captured.isoformat(), kind='举手仪容检查',
+                      filename=camera['name']+' · 举手仪容检查 '+captured.astimezone().strftime('%H:%M:%S'),
+                      scene=SCENE, checks=[CHECK], standard=camera['standard'], cameraId=camera['id'],
+                      tieStyle=camera['tieStyle'], hairStyle=camera['hairStyle'], gestureVersion=1,
+                      captureEvent=store_event(folder, event, 'gesture-0', live=True),
+                      state='排队中', error='', review='待复核', groups=[])
+        save(folder, report)
+    except Exception:
+        shutil.rmtree(folder)
+        raise
+    return job, POOL.submit(run, folder, report, False)
+
+
 def submit_capture(camera, samples, captured, run_id):
     folder = STORE / run_id
     folder.mkdir()
@@ -173,7 +228,8 @@ def submit_capture(camera, samples, captured, run_id):
         created = datetime.fromtimestamp(captured, timezone.utc)
         report = dict(id=run_id, model=MODEL_NAME, created=created.isoformat(),
                       filename=camera['name']+' · '+created.astimezone().strftime('%m-%d %H:%M:%S'),
-                      scene=camera['scene'], checks=PROFILES[camera['scene']], standard=camera['standard'],
+                      scene=camera['scene'], checks=[name for name in PROFILES[camera['scene']]
+                          if camera['scene'] != SCENE or name != CHECK], standard=camera['standard'],
                       interval=0.5, state='排队中', error='', review='待复核', groups=[],
                       kind='定期抓拍', cameraId=camera['id'], captureFrames=frames)
         save(folder, report)
@@ -187,7 +243,7 @@ def submit_capture(camera, samples, captured, run_id):
 
 @router.get('/status')
 def status():
-    return {'installed': installed(), 'model': MODEL_NAME, 'profiles': PROFILES}
+    return {'installed': installed(), 'model': MODEL_NAME, 'profiles': PROFILES, 'poseInstalled': pose_ready()}
 
 
 @router.get('/jobs')
@@ -229,10 +285,16 @@ def export(job_id: str):
                 f'<p>复核状态：{escape(r["review"])}　{escape(r.get("reviewNote",""))}</p>',
                 f'<p>现场标准：{escape(r["standard"] or "默认")}</p>',
                 '<p>结论仅适用于以下采样画面。未采样的时段可能包含其他事件。</p>']
+    if r.get('gestureCount') == 0:
+        sections.append(f'<p>{NO_EVENT}</p>')
     for i, group in enumerate(r['groups'], 1):
         sections.append(f'<h2>第 {i} 组证据</h2>')
+        if gesture := group.get('gesture'):
+            sections.append(f'<p>举手者 {gesture["person"]} · {gesture["seconds"]:.2f} 秒 · {escape(gesture["style"])}</p>')
         for frame_item in group['frames']:
             label = '输入图片' if frame_item['seconds'] is None else f'{frame_item["seconds"]:.2f} 秒'
+            if 'role' in frame_item:
+                label += ' · ' + escape(frame_item['role'])
             data = encoded_image(folder / frame_item['file'])
             sections.append(f'<figure><img src="{data}" alt="证据图"><figcaption>{label}</figcaption></figure>')
         sections.append('<ul>')
@@ -246,7 +308,8 @@ def export(job_id: str):
 
 @router.post('/jobs', status_code=202)
 def create(file: UploadFile = File(...), scene: str = Form('公区卫生'), interval: float = Form(5),
-           standard: str = Form(''), checks: str = Form('')):
+           standard: str = Form(''), checks: str = Form(''), tieStyle: str = Form('', max_length=400),
+           hairStyle: str = Form('', max_length=400)):
     ext = Path(file.filename or '').suffix.lower()
     if ext not in IMAGE | VIDEO or scene not in PROFILES or not 1 <= interval <= 120 or len(standard) > 1200:
         raise HTTPException(400, '文件类型、场景、抽样间隔或检查标准无效')
@@ -259,6 +322,9 @@ def create(file: UploadFile = File(...), scene: str = Form('公区卫生'), inte
         raise HTTPException(400, '请选择有效的检查项')
     if not installed():
         raise HTTPException(503, '本地视觉模型尚未就绪')
+    gesture_scan = ext in VIDEO and scene == SCENE and CHECK in selected
+    if gesture_scan and not pose_ready():
+        raise HTTPException(503, '姿态模型未安装，请运行 python -m local.setup_vision')
     if not SLOTS.acquire(blocking=False):
         raise HTTPException(429, '已有四个巡检任务，请稍后再提交')
     folder = STORE / uuid.uuid4().hex
@@ -277,6 +343,8 @@ def create(file: UploadFile = File(...), scene: str = Form('公区卫生'), inte
                   'filename': Path(file.filename).name, 'extension': ext, 'scene': scene, 'checks': selected,
                   'standard': standard.strip(), 'interval': interval, 'state': '排队中', 'error': '',
                   'review': '待复核', 'groups': [], 'kind': '图片' if ext in IMAGE else '视频'}
+        if gesture_scan:
+            report.update(gestureVersion=1, tieStyle=tieStyle.strip(), hairStyle=hairStyle.strip())
         save(folder, report)
         POOL.submit(run, folder, report)
         return {'id': folder.name}
@@ -314,6 +382,7 @@ def retry(job_id: str):
         if not SLOTS.acquire(blocking=False):
             raise HTTPException(429, '请等待队列中的任务完成')
         report.update(state='排队中', groups=[], error='')
+        report.pop('gestureCount', None)
         save(folder, report)
         POOL.submit(run, folder, report)
     return {'id': job_id}
