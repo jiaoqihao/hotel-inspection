@@ -1,0 +1,157 @@
+.module-tabs,
+.module-meta,
+.phone audio {
+  margin-bottom: 1rem;
+}
+.module-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.module-meta {
+  padding: 0.5rem 1.5rem;
+}
+.phone .panel,
+.store-login .panel {
+  padding: 1.4rem;
+}
+.phone form,
+.store-login form {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 42rem;
+}
+.phone label,
+.store-login label,
+.module-meta label {
+  display: grid;
+  gap: 0.25rem;
+}
+.phone input,
+.phone select,
+.store-login input,
+.module-meta input {
+  padding: 0.55rem;
+  border: 1px solid #cbd5dc;
+  border-radius: 0.4rem;
+}
+.phone label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+}
+.phone button,
+.store-login button {
+  cursor: pointer;
+}
+.phone form button,
+.phone article button,
+.phone details button {
+  justify-self: start;
+  padding: 0.45rem 0.8rem;
+}
+.phone-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #dce3e7;
+  padding: 0.7rem;
+  background: white;
+}
+.phone article {
+  padding: 1rem 0;
+  border-bottom: 1px solid #dce3e7;
+}
+.phone audio {
+  display: block;
+  max-width: 100%;
+}
+.phone-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+}
+.store-login {
+  max-width: 30rem;
+  margin: 8vh auto;
+}
+.metric {
+  text-align: left;
+  cursor: pointer;
+}
+@media (max-width: 850px) {
+  .phone-columns {
+    grid-template-columns: 1fr;
+  }
+  .phone-row {
+    flex-direction: column;
+  }
+  .app-shell .sidebar {
+    display: flex;
+    position: static;
+    width: auto;
+    height: auto;
+  }
+  .app-shell {
+    display: block;
+  }
+  .app-shell .main-shell {
+    margin-left: 0;
+    width: 100%;
+  }
+  .sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .sidebar .sidebar-bottom {
+    margin: 0;
+  }
+  .module-tabs {
+    gap: 0.25rem;
+  }
+  .main-shell main {
+    padding: 1rem;
+  }
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.report-grid .panel {
+  padding: 1rem;
+}
+
+.phone h1{font-size:1.85rem;margin:0 0 1rem}
+.phone h2{font-size:1.3rem;margin:0 0 .6rem}
+.phone h3{font-size:1.05rem;margin:1rem 0 .5rem}
+.phone .muted{margin:.8rem 0 1.1rem}
+.phone article>button,.phone details button,.phone form button,.phone .panel>button:not(.phone-row){
+ border:1px solid #c7d6cf;background:#f4f8f6;color:#204f40;border-radius:.45rem;font:inherit;padding:.45rem .75rem}
+.phone article>button{text-align:left;line-height:1.55}
+.phone form button[type=submit],.phone form button.primary{background:#226451;color:white}
+.phone audio{width:min(100%,36rem);margin-top:.8rem}
+.phone a{color:#226451}
+.phone .panel>p{margin:.5rem 0}
+.phone [role=alert]{color:#72491e;background:#fcf2df}
+.phone-columns{margin:1rem 0 1.5rem}
+.phone article{padding:.7rem 0 1rem}
+.phone details>summary{cursor:pointer;color:#226451;padding:.6rem 0}
+.phone form label{font-size:.88rem}
+.phone input,.phone select{font:inherit}
+
+.phone-fields,.phone-kpis {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:12px}
+.phone-fields label,.phone-analysis form>label {display:grid;gap:5px}
+.phone-options,.phone-analysis header {display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.phone-kpis {margin:18px 0}
+.phone-kpis button {display:grid;text-align:left;gap:8px;background:#f1f6f3;color:#214438;border:1px solid #d4e3da;padding:14px;border-radius:9px}
+.phone-kpis strong {font-size:1.55rem}
+.phone-kpis button[aria-pressed=true] {border-color:#286552}
+.phone-drop {padding:16px;border:1px dashed #71a08e;border-radius:7px}
+.phone-analysis {margin:18px 0;padding:15px;background:#f5f8f6;border-radius:8px}
+.phone details {margin:10px 0}.phone summary {cursor:pointer}.phone audio {max-width:100%}
+.phone textarea {width:100%;min-height:4em}.phone-row {overflow-wrap:anywhere}
+@media(max-width:650px){.phone-columns {display:flex;flex-direction:column-reverse}.phone .panel{padding:12px}.phone-options button{min-height:40px}}

@@ -1,0 +1,444 @@
+/* Front-desk call register and recording review */
+.phone {
+  --ph-ink: #173f35;
+  --ph-green: #206b55;
+  --ph-line: #dce6e0;
+  --ph-soft: #f3f7f4;
+  --ph-dim: #566e64;
+}
+.phone h1 {
+  scroll-margin-top: 16px;
+}
+.phone .module-tabs {
+  gap: 4px;
+  padding: 4px;
+  background: #eaf0ed;
+  border: 1px solid var(--ph-line);
+  border-radius: 10px;
+  width: fit-content;
+  max-width: 100%;
+}
+.phone .module-tabs button {
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ph-dim);
+  font-weight: 550;
+}
+.phone .module-tabs .primary {
+  color: #fff;
+  background: var(--ph-green);
+}
+.phone .ph-source-line {
+  font-size: 0.84rem;
+  color: var(--ph-dim);
+  margin: 12px 0 16px;
+}
+.phone .ph-section-heading,
+.ph-detail-nav,
+.ph-detail-title,
+.ph-transcript header,
+.ph-turn > div,
+.ph-filter-tools,
+.ph-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.phone .ph-section-heading h2,
+.phone .ph-transcript h3,
+.phone .ph-detail-title h2 {
+  margin: 0;
+}
+.ph-count,
+.ph-transcript header span {
+  font-size: 0.82rem;
+  color: var(--ph-dim);
+  font-variant-numeric: tabular-nums;
+}
+.phone .ph-archive,
+.phone .ph-detail {
+  min-width: 0;
+  border: 1px solid var(--ph-line);
+  border-radius: 14px;
+}
+.phone .phone-options button,
+.phone .ph-filter-tools button,
+.phone .ph-presets button,
+.phone .ph-pager button,
+.phone .ph-side-tabs button,
+.phone .phone-analysis button,
+.phone .ph-detail-nav button,
+.phone .ph-turn button {
+  border: 1px solid var(--ph-line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ph-ink);
+  padding: 6px 11px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.phone button:focus-visible,
+.phone a:focus-visible {
+  outline: 2px solid #15785d;
+  outline-offset: 3px;
+}
+.phone button:disabled {
+  cursor: default;
+  opacity: 0.52;
+}
+.phone .phone-finder {
+  margin-top: 16px;
+}
+.phone .phone-finder > .phone-options {
+  gap: 5px;
+  border-bottom: 1px solid var(--ph-line);
+  margin-bottom: 15px;
+  padding-bottom: 11px;
+}
+.phone .phone-finder > .phone-options button {
+  background: transparent;
+  border-color: transparent;
+}
+.phone .phone-finder > .phone-options button[aria-pressed="true"],
+.phone .ph-side-tabs button[aria-pressed="true"],
+.phone .ph-presets button[aria-pressed="true"] {
+  background: #dfefe6;
+  color: #154e3c;
+  border-color: #b4d7c4;
+  font-weight: 650;
+}
+.phone .ph-presets,
+.ph-actions,
+.ph-tags {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ph-filter-tools,
+.phone-report > .ph-presets {
+  margin: 10px 0;
+}
+.phone .phone-finder details {
+  margin: 0 0 14px;
+}
+.phone .phone-finder summary {
+  font-size: 0.85rem;
+}
+.ph-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.ph-register {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--ph-ink);
+  table-layout: fixed;
+}
+.ph-register th,
+.ph-register td {
+  text-align: left;
+  border-bottom: 1px solid var(--ph-line);
+  padding: 11px 10px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.ph-register th {
+  background: var(--ph-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ph-dim);
+}
+.ph-register th:nth-child(1) {
+  width: 14%;
+}
+.ph-register th:nth-child(2) {
+  width: 23%;
+}
+.ph-register th:nth-child(3) {
+  width: 34%;
+}
+.ph-register th:nth-child(4) {
+  width: 15%;
+}
+.ph-register tr:hover td {
+  background: #f8fbf8;
+}
+.ph-register td small,
+.ph-register time strong {
+  display: block;
+}
+.ph-register small {
+  color: var(--ph-dim);
+  font-size: 0.77rem;
+  margin-top: 3px;
+}
+.ph-register td p {
+  margin: 4px 0 0;
+  color: #384b43;
+  line-height: 1.5;
+}
+.phone .ph-link,
+.phone .ph-star {
+  border: 0;
+  background: transparent;
+  padding: 3px;
+  color: var(--ph-green);
+  font: inherit;
+  text-align: left;
+}
+.phone .ph-link:hover {
+  text-decoration: underline;
+}
+.phone .ph-star {
+  font-size: 1.35em;
+  line-height: 1.2;
+}
+.phone .ph-star[aria-pressed="true"] {
+  color: #946715;
+}
+.ph-state {
+  font-weight: 550;
+}
+.ph-tag,
+.ph-risk {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
+  background: #edf1ef;
+  color: #42534a;
+  padding: 2px 7px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.ph-tag[data-kind="客需"] {
+  color: #235e4c;
+  background: #e1f1e8;
+}
+.ph-tag[data-kind="商机"] {
+  color: #574988;
+  background: #ede9fa;
+}
+.ph-tag[data-kind="咨询"] {
+  color: #285977;
+  background: #e5f1f8;
+}
+.ph-tag[data-kind="客诉"],
+.ph-risk[data-level="S"],
+.ph-risk[data-level="A"] {
+  color: #963d35;
+  background: #fbe8e4;
+}
+.ph-tag[data-kind="潜在客诉"],
+.ph-risk[data-level="B"],
+.ph-risk[data-level="C"] {
+  color: #815819;
+  background: #fbefd6;
+}
+.phone .ph-empty {
+  padding: 32px 15px;
+  background: var(--ph-soft);
+  text-align: center;
+  border-radius: 8px;
+  color: var(--ph-dim);
+}
+.ph-pager {
+  justify-content: flex-end;
+  margin-top: 14px;
+  font-size: 0.8rem;
+  color: var(--ph-dim);
+}
+.ph-detail-nav {
+  font-size: 0.86rem;
+  margin-bottom: 14px;
+}
+.ph-detail-title {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.ph-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 16px 0;
+}
+.ph-facts dt {
+  font-size: 0.78rem;
+  color: var(--ph-dim);
+}
+.ph-facts dd {
+  margin: 2px 0;
+  color: var(--ph-ink);
+  font-size: 0.9rem;
+}
+.ph-player {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  background: var(--ph-soft);
+  border: 1px solid var(--ph-line);
+  padding: 9px 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.phone .ph-player audio {
+  flex: 1 1 280px;
+  min-width: 0;
+  margin: 0;
+  height: 40px;
+}
+.phone .ph-player label {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+.ph-review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.ph-transcript,
+.ph-side {
+  border: 1px solid var(--ph-line);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.phone .ph-transcript input {
+  width: 100%;
+  margin: 12px 0 4px;
+}
+.ph-turns {
+  max-height: 65vh;
+  overflow: auto;
+}
+.ph-turn {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #f5f7f5;
+  border-left: 3px solid transparent;
+}
+.ph-turn.is-current {
+  background: #e8f3ec;
+  border-color: var(--ph-green);
+}
+.ph-turn > div {
+  font-size: 0.79rem;
+  color: var(--ph-dim);
+}
+.ph-turn p {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.ph-turn mark {
+  background: #ffe8a9;
+  color: inherit;
+}
+.ph-side-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--ph-line);
+  padding-bottom: 10px;
+}
+.phone .ph-side .phone-analysis {
+  padding: 0;
+  margin: 14px 0;
+  background: transparent;
+}
+.phone .ph-side h4 {
+  margin: 4px 0 8px;
+}
+.ph-side h4 span {
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--ph-dim);
+}
+.phone .ph-side form {
+  max-width: 100%;
+}
+.phone .ph-side input,
+.phone .ph-side textarea,
+.phone .ph-side select {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 1000px) {
+  .ph-review-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ph-turns {
+    max-height: 36vh;
+  }
+}
+@media (max-width: 760px) {
+  .phone .module-tabs {
+    width: 100%;
+  }
+  .phone .module-tabs button {
+    padding: 7px 9px;
+  }
+  .phone .ph-archive,
+  .phone .ph-detail {
+    padding: 12px;
+  }
+  .ph-register,
+  .ph-register tbody {
+    display: block;
+  }
+  .ph-register thead {
+    position: absolute;
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .ph-register tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    border: 1px solid var(--ph-line);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 9px;
+    gap: 6px 9px;
+  }
+  .ph-register td {
+    display: block;
+    width: auto;
+    border: 0;
+    padding: 0;
+  }
+  .ph-register td:nth-child(1) {
+    grid-area: 1/2;
+    text-align: right;
+  }
+  .ph-register td:nth-child(2) {
+    grid-area: 1/1;
+  }
+  .ph-register td:nth-child(3) {
+    grid-area: 2/1/3/3;
+  }
+  .ph-register td:nth-child(4) {
+    grid-area: 3/1;
+  }
+  .ph-register td:nth-child(5) {
+    grid-area: 3/2;
+    align-self: end;
+  }
+  .ph-facts {
+    gap: 8px 16px;
+  }
+  .ph-filter-tools {
+    flex-wrap: wrap;
+  }
+}

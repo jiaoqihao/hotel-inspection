@@ -1,0 +1,17 @@
+BEGIN IMMEDIATE;
+ALTER TABLE orders ADD COLUMN owner TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN follow_at REAL;
+ALTER TABLE orders ADD COLUMN feedback TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN desk_rev INTEGER NOT NULL DEFAULT 0;
+UPDATE orders SET owner=coalesce((SELECT actor FROM history WHERE order_id=orders.id AND state='处理中' ORDER BY id LIMIT 1),'');
+CREATE TABLE phone_duty(id INTEGER PRIMARY KEY CHECK(id=1),primary_name TEXT NOT NULL,backup_name TEXT NOT NULL,minutes INTEGER NOT NULL CHECK(minutes BETWEEN 1 AND 240));
+INSERT INTO phone_duty VALUES(1,'值班经理','替班负责人',5);
+CREATE TABLE phone_alert_tasks(call_id TEXT PRIMARY KEY REFERENCES calls(id),recipient TEXT NOT NULL,backup TEXT NOT NULL,owner TEXT NOT NULL DEFAULT '',state TEXT NOT NULL DEFAULT '待接手',due REAL NOT NULL,escalated REAL,revision INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE phone_duty_events(id INTEGER PRIMARY KEY,call_id TEXT NOT NULL REFERENCES calls(id),action TEXT NOT NULL,actor TEXT NOT NULL,recipient TEXT NOT NULL,note TEXT NOT NULL,at REAL NOT NULL);
+CREATE INDEX duty_events_call ON phone_duty_events(call_id,id);
+CREATE TABLE phone_cdr_rows(id INTEGER PRIMARY KEY,batch INTEGER NOT NULL REFERENCES phone_reconciliations(id),external_key TEXT NOT NULL,leg TEXT NOT NULL,caller TEXT NOT NULL,callee TEXT NOT NULL,started TEXT NOT NULL,original TEXT NOT NULL,checked_reason TEXT NOT NULL DEFAULT '',actor TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '');
+CREATE INDEX cdr_batch ON phone_cdr_rows(batch,id);
+CREATE INDEX calls_order_match ON calls(test,room,started);
+CREATE INDEX orders_room ON orders(room,department);
+PRAGMA user_version=4;
+COMMIT;

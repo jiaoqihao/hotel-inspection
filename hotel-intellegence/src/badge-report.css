@@ -1,0 +1,53 @@
+.badge-report { display: grid; gap: 10px; color: #293f37; }
+.br-summary { margin-bottom: 6px; padding: 19px 22px; border: 1px solid #d9e6dd; border-radius: 10px; background: #f2f7f3; }
+.br-summary h3 { margin: 0 0 9px; color: #275d46; font-size: 17px; }
+.br-summary p { margin: 0; white-space: pre-line; line-height: 1.65; }
+.br-summary article + article { margin-top: 11px; }
+.br-summary > small { display: block; margin-top: 13px; color: #53695f; font-size: 12px; }
+.br-section { border: 1px solid #e0e7e2; border-radius: 9px; background: white; }
+.br-section > summary { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 10px 17px; cursor: pointer; list-style: none; }
+.br-section > summary::-webkit-details-marker, .br-actions > summary::-webkit-details-marker { display: none; }
+.br-section > summary::after, .br-actions > summary::after { content: ''; width: 6px; height: 6px; border: solid #607668; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); flex-shrink: 0; }
+.br-section[open] > summary::after, .br-actions[open] > summary::after { transform: rotate(225deg); }
+.br-section > summary strong { flex: 1; font-size: 15px; font-weight: 600; }
+.br-section > summary span, .br-section article p, .br-empty { color: #617169; font-size: 13px; }
+.br-section article { padding: 12px 0; margin: 0 17px; border-top: 1px solid #e7ece8; }
+.br-section article p { margin: 6px 0; line-height: 1.55; }
+.br-section article:focus-visible, .br-summary article:focus-visible { outline: 2px solid #368464; outline-offset: 2px; }
+.br-empty { margin: 0; padding: 0 17px 14px; }
+.br-line { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
+.br-line strong,.br-line label { font-size: 15px; font-weight: 550; overflow-wrap: anywhere; }
+.br-line input { margin: 0 8px 0 0; accent-color: #28674f; }
+.br-context { font-size: 12px; color: #4b6d59; margin-right: 8px; }
+.br-citations { margin-top: 4px; }
+.br-citations > summary, .br-meta summary { cursor: pointer; font-size: 12px; color: #486951; line-height: 1.6; }
+.br-section table { width: calc(100% - 34px); margin: 0 17px 12px; min-width: 0; }
+.br-section td,.br-section th { padding: 7px 4px; font-size: 13px; }
+.br-section td:last-child,.br-section th:last-child { text-align: right; }
+.br-section .badge-customer { margin: 0 14px 14px; }
+.report-modal .br-meta { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; padding: 8px 30px 0; margin: 0; color: #607168; font-size: 13px; flex-wrap: wrap; }
+.br-meta details[open] { flex: 1 1 240px; }
+.br-meta details input { margin: 4px 0; width: 100%; }
+.report-toolbar .br-actions { position: relative; }
+.br-actions > summary { display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none; }
+.br-actions > div { position: absolute; top: calc(100% + 4px); right: 0; z-index: 8; min-width: 180px; padding: 5px; display: grid; gap: 2px; border: 1px solid #d9e2da; border-radius: 8px; background: white; box-shadow: 0 8px 24px #17352a24; }
+.br-actions > div button { justify-content: flex-start; padding: 8px 10px; text-align: left; width: 100%; border: 0; background: transparent; }
+.br-actions > div button:hover { background: #f0f5f1; }
+.br-actions .danger::after { content: '删除录音'; font-size: 13px; }
+@media (max-width: 640px) {
+  .report-modal .modal-heading { padding: 14px 16px 10px; }
+  .report-modal .report-toolbar { padding: 0 16px 10px; }
+  .report-modal .br-meta { padding: 6px 16px 0; }
+  .report-modal .report-body { padding: 12px; }
+  .report-modal .audio-player audio { width: 100%; flex: 1 1 auto; }
+  .report-modal .audio-player > svg { display: none; }
+  .br-summary { padding: 14px; }
+  .br-section > summary { padding: 8px 12px; }
+  .br-line { flex-wrap: wrap; }
+  .br-section article { margin: 0 12px; }
+}
+
+.br-scene { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin:0 0 16px; padding:1px 0 2px 14px; border-left:3px solid #327052; }
+.br-scene small { font-size:12px; color:#5b7063; }
+.br-scene h3 { margin:3px 0; font-size:21px; line-height:1.35; color:#234e39; }
+.br-scene p { margin:0; color:#56695d; font-size:13px; }

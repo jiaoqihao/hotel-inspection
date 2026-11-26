@@ -1,0 +1,366 @@
+.phone .phone-mast {
+  margin-bottom: 18px;
+}
+.ph-mast-title,
+.phone .ph-duty-entry,
+.ph-healthbar,
+.ph-healthbar > div,
+.ph-health-state,
+.oq-head,
+.oq-identity,
+.oq-scope,
+.oq-scope > div,
+.oq-metrics button > span,
+.oq-listhead,
+.oq-listhead > div,
+.oq-order-head,
+.oq-tags,
+.phone .oq-evidence {
+  display: flex;
+  align-items: center;
+}
+.ph-mast-title,
+.oq-identity {
+  gap: 13px;
+}
+.ph-mast-symbol,
+.oq-symbol,
+.oq-seal {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+}
+.ph-mast-symbol {
+  width: 48px;
+  height: 48px;
+  color: #e1d2a6;
+  background: #18483d;
+}
+.phone .ph-mast-title h1 {
+  margin: 0;
+  line-height: 1.2;
+}
+.phone .ph-duty-entry {
+  gap: 8px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #225e4d;
+  border: 1px solid #225e4d;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.phone .ph-duty-entry:hover {
+  background: #184939;
+}
+.phone .module-tabs {
+  width: 100%;
+  margin: 0;
+  padding: 6px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #d6e2db;
+  border-radius: 0;
+}
+.phone .module-tabs button {
+  white-space: nowrap;
+}
+.phone .module-tabs button:not(.primary):hover {
+  background: #e3ebe6;
+}
+.ph-healthbar {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin: 12px 0 18px;
+  font-size: 0.82rem;
+  color: #546b60;
+}
+.ph-health-state {
+  gap: 7px;
+}
+.ph-health-state[data-state="waiting"] svg {
+  color: #986b28;
+}
+.ph-health-state[data-state="error"] {
+  color: #933d32;
+}
+.ph-healthbar > div {
+  gap: 16px;
+}
+.ph-healthbar b {
+  color: #304d40;
+  font-variant-numeric: tabular-nums;
+}
+.ph-healthbar small {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+}
+.oq {
+  background: #fff;
+  border: 1px solid #d4e1d8;
+  border-radius: 15px;
+  overflow: hidden;
+  color: #203e34;
+}
+.oq-head,
+.oq-listhead,
+.oq-order-head {
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.oq-head {
+  padding: 23px 24px 20px;
+  background: linear-gradient(110deg, #f2f7f3, #fff 75%);
+}
+.oq-identity h2,
+.phone .oq h3 {
+  margin: 0;
+}
+.phone .oq h2 {
+  margin: 0;
+  font-size: 1.34rem;
+}
+.oq-identity p {
+  margin: 4px 0 0;
+  color: #536b5d;
+  font-size: 0.85rem;
+}
+.oq-symbol {
+  width: 43px;
+  height: 43px;
+  background: #deebe2;
+  color: #305e49;
+}
+.oq-symbol.warm {
+  color: #945621;
+  background: #f5e9d9;
+}
+.oq-scope {
+  flex-wrap: wrap;
+  gap: 9px;
+  color: #506458;
+  font-size: 0.86rem;
+}
+.oq-scope > div,
+.oq-owners {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #d7e1d9;
+  border-radius: 9px;
+  background: #f0f4f1;
+}
+.oq-scope button,
+.oq-owners button {
+  font: inherit;
+  font-weight: 550;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4f6459;
+  padding: 7px 13px;
+}
+.oq-scope button[aria-pressed="true"] {
+  color: white;
+  background: #245f4c;
+}
+.oq-owners button[aria-pressed="true"] {
+  background: white;
+  color: #214e3e;
+  box-shadow: 0 1px 4px #192e241a;
+}
+.oq-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 24px 20px;
+}
+.oq-metrics button {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid #dfe8e0;
+  border-radius: 10px;
+  background: #f7faf7;
+  color: #315b49;
+  font: inherit;
+}
+.oq-metrics button > span {
+  gap: 7px;
+  color: #435e50;
+  font-size: 0.84rem;
+}
+.oq-metrics button strong {
+  font-size: 1.65rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.oq-metrics .oq-urgent {
+  background: #fbf7ef;
+  border-color: #ecdfca;
+  color: #865320;
+}
+.oq-metrics button[aria-pressed="true"],
+.oq-metrics button:hover {
+  border-color: currentColor;
+}
+.oq-listhead {
+  padding: 14px 24px;
+  border-block: 1px solid #e0e8e2;
+}
+.oq-listhead > div:first-child {
+  gap: 9px;
+}
+.oq-listhead h3 {
+  font-size: 1rem;
+}
+.oq-count {
+  background: #edf3ee;
+  border: 1px solid #dae5dc;
+  color: #496450;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+.oq-owners {
+  font-size: 0.84rem;
+}
+.oq-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  text-align: center;
+  padding: 32px 16px 36px;
+}
+.oq-seal {
+  width: 45px;
+  height: 45px;
+  color: #3b725a;
+  background: #eaf3ed;
+  border: 1px solid #d8e6db;
+}
+.oq-empty strong {
+  font-size: 1.05rem;
+}
+.oq-empty p {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  color: #5c7063;
+}
+.oq-empty button,
+.phone .oq-evidence {
+  color: #275f49;
+  background: #f6faf7;
+  border: 1px solid #c9dccc;
+  border-radius: 7px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 0.87rem;
+}
+.oq-empty button {
+  margin-top: 5px;
+}
+.phone .oq-order {
+  padding: 20px 24px;
+  overflow-wrap: anywhere;
+}
+.phone .oq-order:last-child {
+  border-bottom: none;
+}
+.oq-order-head small,
+.oq-order dt,
+.oq-order time {
+  color: #566b5e;
+  font-size: 0.83rem;
+}
+.phone .oq-order h3 {
+  margin: 4px 0;
+  font-size: 1.1rem;
+}
+.oq-tags {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.oq-tags span {
+  background: #edf3ef;
+  color: #365c47;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 0.78rem;
+}
+.oq-tags [data-risk="true"] {
+  background: #faeade;
+  color: #874820;
+}
+.oq-order dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 40px;
+  padding: 12px 0;
+  margin: 4px 0 0;
+}
+.oq-order dd {
+  margin: 3px 0 0;
+  font-weight: 550;
+}
+.oq-order details {
+  margin: 10px 0;
+}
+.oq-order summary {
+  cursor: pointer;
+  color: #2a5a44;
+}
+.oq-order ol {
+  line-height: 1.8;
+  padding-left: 1.5rem;
+}
+.oq-feedback {
+  background: #f4f7f3;
+  padding: 8px 12px;
+  border-left: 3px solid #a1b39f;
+}
+.phone .oq-evidence {
+  gap: 6px;
+}
+@media (max-width: 760px) {
+  .phone .module-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 7px;
+  }
+  .phone .module-tabs button {
+    flex: none;
+  }
+  .oq-head,
+  .oq-listhead,
+  .phone .oq-order {
+    padding: 15px;
+  }
+  .oq-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 15px 15px;
+    gap: 7px;
+  }
+  .oq-metrics button {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .oq-empty {
+    padding: 23px 12px;
+  }
+  .oq-scope button,
+  .oq-owners button {
+    padding: 7px 10px;
+  }
+  .ph-healthbar > div {
+    gap: 12px;
+  }
+}

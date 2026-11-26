@@ -1,0 +1,79 @@
+.vision-card { padding: clamp(16px,2vw,26px); }
+.vision-card h2 { margin: 0 0 16px; overflow-wrap: anywhere; }
+.vision-card label { display: grid; gap: 6px; margin-bottom: 16px; font-weight: 550; font-size: 14px; }
+.vision-card textarea, .vision-card input:not([type=checkbox]), .vision-card select {
+  min-width: 0; max-width: 100%; margin: 0; border: 1px solid #cfdbd5; background-color: white;
+  padding: 9px 12px; border-radius: 7px; width: 100%; font: inherit; color: inherit;
+}
+.vision-card textarea { resize: vertical; }
+.vision-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.vision-upload { width: 100%; display: grid; justify-items: center; gap: 7px; padding: 22px 14px; border: 1px dashed #abc7b6; background: #f7faf7; color: var(--work-ink); border-radius: 9px; margin: 0 0 24px; }
+.vision-upload:hover { background: #edf5ee; border-color: #769d83; }
+.vision-upload strong { overflow-wrap: anywhere; font-size: 15px; }
+.vision-upload small, .compose-foot small, .vision-card .muted { color: var(--work-dim); font-size: 13px; }
+.vision-options { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0 0 17px; }
+.vision-options legend { padding: 0; margin: 0 0 7px; font-size: 14px; font-weight: 550; }
+.vision-options label { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 6px 9px; border: 1px solid var(--work-line); border-radius: 6px; font-weight: 400; cursor: pointer; }
+.vision-options label:has(:checked) { border-color: #bbd4c4; background: var(--work-soft); }
+.vision-options input { margin: 0; }
+.vision-group { border-top: 1px solid var(--work-line); padding: 13px 0; }
+.vision-group summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.vision-group code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--work-soft); margin: 8px 0; }
+.compose-foot, .vision-checks, .vision-frames { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.compose-foot { border-top: 1px solid var(--work-line); margin-top: 16px; padding-top: 16px; }
+.vision-report .section-title { flex-wrap: wrap; align-items: flex-start; margin-bottom: 15px; }
+.vision-report .section-title h2 { margin-bottom: 6px; }
+.vision-report > p { background: var(--work-soft); padding: 12px; border-radius: 7px; margin: 14px 0; }
+.vision-report .vision-checks a { text-decoration: none; }
+.vision-report .finding { margin: 10px 0; }
+.vision-frames { margin: 14px 0; align-items: flex-start; }
+.vision-frames figure { flex: 1 1 180px; max-width: 620px; margin: 0; }
+.vision-frames img { display: block; max-width: 100%; border-radius: 6px; }
+.vision-frames figcaption, .vision-list small, .vision-ledger td small { color: var(--work-dim); font-size: 13px; }
+.vision-report label { margin-top: 16px; }
+.vision-list { margin: 0; padding: 0; list-style: none; }
+.vision-list li + li { border-top: 1px solid var(--work-line); }
+.vision-list button { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 14px; width: 100%; border: 0; padding: 15px 22px; text-align: left; background: transparent; color: var(--work-ink); }
+.vision-list li:last-child button { border-radius: 0 0 12px 12px; }
+.vision-list button:hover { background: #f6faf7; }
+.job-name strong, .vision-list small, .vision-ledger td small { display: block; }
+.job-name strong { overflow-wrap: anywhere; font-size: 15px; margin-bottom: 4px; }
+.job-states { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.patrol-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-radius: 12px; padding: 20px 0; margin: 0 0 18px; background: #183f35; color: #fff; }
+.patrol-stats > div { padding: 0 22px; }
+.patrol-stats > div + div { border-left: 1px solid #426255; }
+.patrol-stats dt { font-size: 13px; color: #d0e0d5; }
+.patrol-stats dd { margin: 5px 0 0; font-size: 29px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.vision-ledger + .vision-ledger { margin-top: 18px; }
+.vision-ledger .search-input { margin-left: auto; flex: 0 1 240px; }
+.vision-ledger th { background: var(--work-soft); color: var(--work-dim); }
+.vision-ledger td { padding: 14px 16px; color: #365448; }
+.vision-ledger tr { cursor: default; }
+.vision-ledger td small { margin-top: 5px; }
+.patrol-actions { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.patrol-actions button { background: transparent; border: 0; padding: 4px 0; color: var(--green); cursor: pointer; font-size: 13px; }
+.patrol-actions button:hover { text-decoration: underline; }
+@media (max-width: 650px) {
+  .vision-fields { grid-template-columns: 1fr; gap: 0; }
+  .vision-list button { grid-template-columns: auto minmax(0,1fr) auto; gap: 6px 10px; padding: 12px 14px; }
+  .vision-list button > .work-icon { grid-row: span 2; }
+  .job-states { grid-column: 2; }
+  .vision-list button > svg { grid-area: 1/3/3/4; }
+  .vision-ledger .search-input { flex: 1 1 100%; max-width: none; }
+  .patrol-stats > div { padding: 0 10px; }
+  .patrol-stats dd { font-size: 24px; }
+  .vision-card .section-title { align-items: flex-start; }
+}
+
+@media (max-width: 700px) {
+  .patrol-register, .patrol-history, .vision-ledger tbody { display: block; white-space: normal; }
+  .vision-ledger thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  .vision-ledger tr { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 12px; padding: 16px; }
+  .vision-ledger tr + tr { border-top: 1px solid var(--work-line); }
+  .vision-ledger td { display: block; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .patrol-register td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 3px; font-size: 12px; color: var(--work-dim); }
+  .patrol-register td:last-child { grid-column: 1 / -1; border-top: 1px solid var(--work-line); padding-top: 8px; }
+  .patrol-actions { gap: 6px 14px; }
+  .patrol-actions button { padding-block: 7px; }
+  .patrol-history td:nth-child(even) { text-align: right; }
+}

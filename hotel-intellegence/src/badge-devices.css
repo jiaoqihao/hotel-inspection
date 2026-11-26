@@ -1,0 +1,108 @@
+.bd-heading,.bd-actions,.bd-tools,.bd-foot,.bd-dialog footer,.bd-dialog header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.bd-heading,.bd-foot,.bd-dialog header{justify-content:space-between}.bd-heading{margin:22px 0 20px}.bd-heading h1{margin:0;font-size:2rem}.bd-heading p,.bd-foot,.bd-dialog dt{color:#52675e}.bd-heading p{margin:8px 0 0}.bd-heading p span{margin:0 6px;color:#96a69e}.bd-panel{overflow:hidden}.bd-tools,.bd-foot{padding:14px 18px}.bd-tools input:not([type=checkbox]){width:min(280px,100%)}.bd-panel table{width:100%}.bd-panel td small{display:block;color:#65746e;margin-top:3px}.bd-panel tbody tr{cursor:pointer}.bd-panel tbody tr:hover{background:#f0f5f2}.bd-state{white-space:nowrap;font-size:13px;border-radius:5px;padding:3px 8px;background:#f0f2f0;color:#55635e}.bd-在线{background:#e1f2e9;color:#206444}.bd-待确认{background:#fbf1d9;color:#73551d}.bd-tools select,.bd-tools input:not([type=checkbox]),.bd-dialog input:not([type=checkbox]),.bd-dialog select{border:1px solid #cedad3;background:white;color:inherit;border-radius:6px;padding:8px 10px;font:inherit}.bd-tools label{display:flex;align-items:center;gap:5px}.bd-tools input[type=checkbox],.bd-dialog input[type=checkbox]{width:auto}.bd-foot{font-size:13px;border-top:1px solid #e2e8e3}.bd-dialog{width:min(570px,94vw);max-height:86vh;overflow:auto;color:#203d31;background:white;border:1px solid #cddbd3;padding:22px;border-radius:12px;box-shadow:0 14px 64px #14352533}.bd-dialog::backdrop{background:#152d2466}.bd-dialog header{margin-bottom:18px}.bd-dialog h2,.bd-dialog h3{margin:4px 0}.bd-dialog footer{justify-content:flex-end;margin-top:16px}.bd-dialog .bd-tools{padding:0 0 12px}.bd-dialog label{display:grid;gap:4px;font-size:14px;margin:8px 0}.bd-dialog .bd-pick{max-height:200px;overflow:auto}.bd-pick label{display:flex;align-items:center;gap:8px}.bd-dialog fieldset{border:1px solid #d9e3dc;margin:12px 0;border-radius:6px}.bd-fields,.bd-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;align-items:end}.bd-fields input,.bd-fields select{width:100%}.bd-facts{background:#f6f8f6;padding:14px}.bd-facts dd{margin:3px 0 8px;overflow-wrap:anywhere}.bd-record{width:100%;text-align:left;overflow-wrap:anywhere;background:white;border:0;border-bottom:1px solid #dce4de;color:#285943;padding:10px 0}.bd-import{max-width:900px}
+@media(max-width:800px){.bd-panel th:nth-child(3),.bd-panel td:nth-child(3),.bd-panel th:nth-child(6),.bd-panel td:nth-child(6){display:none}}
+@media(max-width:540px){.bd-panel th:nth-child(5),.bd-panel td:nth-child(5){display:none}.bd-heading{align-items:flex-start}.bd-fields{grid-template-columns:1fr}.bd-dialog{padding:14px}}
+
+
+/* Voice module navigation and shared archive filters */
+.module-tabs.bd-nav {
+  display:flex; align-items:center; flex-wrap:nowrap; gap:clamp(12px,2vw,28px);
+  border-bottom:1px solid #d9e3dd; margin:0 0 24px; padding:0;
+}
+.bd-nav > button, .bd-nav > details > summary {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  position:relative; height:42px; margin:0; padding:0 4px; background:transparent;
+  border:0; border-radius:0; color:#54665d; white-space:nowrap;
+  font:inherit; font-size:14px; font-weight:550; cursor:pointer; list-style:none;
+}
+.bd-nav summary::-webkit-details-marker {display:none}
+.bd-nav > button:hover, .bd-nav > details > summary:hover {color:#154c3b}
+.bd-nav [aria-current="page"] {color:#154c3b;font-weight:700}
+.bd-nav [aria-current="page"]::before {
+  content:""; position:absolute; inset:auto 0 -1px; height:3px; background:#27634d; border-radius:3px 3px 0 0;
+}
+.bd-nav details {position:relative}
+.bd-nav summary::after, .vf-select::after {
+  content:""; width:6px; height:6px; flex:none; border:solid #63776b;
+  border-width:0 1.5px 1.5px 0; transform:translateY(-2px) rotate(45deg);
+}
+.bd-nav details[open] summary::after {transform:translateY(2px) rotate(225deg)}
+.bd-nav details > div, .vf-popup {
+  position:absolute; z-index:8; padding:6px; border:1px solid #d7e2da; border-radius:10px;
+  background:white; box-shadow:0 8px 25px #243e301a;
+}
+.bd-nav details > div {top:100%; min-width:108px}
+.bd-nav details button {display:block; width:100%; padding:8px; text-align:left; white-space:nowrap}
+.voice-filters {
+  display:grid; grid-template-columns:max-content minmax(170px,380px);
+  align-items:end; gap:12px 20px; margin:0 0 18px; padding:16px 20px 18px;
+  background:#fff; border:1px solid #dae4dd; border-radius:11px;
+}
+.voice-filters .vf-field {display:grid; min-width:0; gap:7px; margin:0}
+.vf-label {font-size:12px; font-weight:600; line-height:16px; color:#53665c}
+.vf-segments, .vf-select {
+  box-sizing:border-box; width:100%; height:40px; margin:0; border-radius:7px;
+  font:inherit; font-size:14px; line-height:1.2;
+}
+.vf-segments {display:flex; align-items:stretch; padding:3px; background:#edf2ee}
+.vf-segments button {
+  flex:1 0 auto; margin:0; padding:0 13px; border:0; border-radius:5px;
+  background:transparent; color:#53675b; font:inherit; white-space:nowrap; cursor:pointer;
+}
+.vf-segments button:hover {background:#e0e9e2}
+.vf-segments button[aria-pressed="true"] {background:#245541; color:white; font-weight:600; box-shadow:0 1px 3px #183b2b28}
+.vf-unit {position:relative}
+.vf-select {
+  display:flex; justify-content:space-between; align-items:center; gap:12px; padding:0 13px;
+  background:#fff; border:1px solid #c9d8ce; color:#243e32; cursor:pointer; text-align:left;
+}
+.vf-select > span {white-space:nowrap; text-overflow:ellipsis; overflow:hidden}
+.vf-select:hover {border-color:#8da798}
+.vf-popup {inset:calc(100% + 5px) 0 auto; padding:8px}
+.vf-popup input {width:100%; height:36px; padding:0 9px; margin:0; border:1px solid #c8d6cd; border-radius:6px; font:inherit; font-size:14px}
+.vf-options {max-height:225px; overflow:auto; margin-top:5px}
+.vf-options button {display:block; width:100%; text-align:left; background:white; color:#2e4a3c; border:0; border-radius:5px; font:inherit; font-size:14px; padding:8px; overflow-wrap:anywhere}
+.vf-options button:hover,.vf-options button[aria-pressed="true"] {background:#eaf2ed}
+.vf-options p {margin:8px; color:#627367; font-size:13px}
+.voice-filters :focus-visible, .bd-nav :focus-visible {outline:2px solid #387255; outline-offset:2px}
+.bd-panel .bd-tools {gap:10px; border-bottom:1px solid #e4ece6}
+.bd-panel .bd-tools > input,.bd-panel .bd-tools > select {height:40px; box-sizing:border-box; margin:0; font-size:14px}
+.bd-state {display:inline-flex; gap:6px; align-items:center}
+.bd-state::before {content:""; width:6px; height:6px; background:currentColor; border-radius:50%}
+.bd-tools button[aria-pressed="true"] {background:#245541; color:#fff}
+.bd-dialog summary {cursor:pointer; padding:8px; color:#31584b}
+@container voice-workspace (max-width:680px) {
+  .voice-filters {grid-template-columns:minmax(0,1fr); gap:12px}
+  .voice-filters > :first-child {grid-column:1 / -1}
+  .vf-segments {width:max-content;max-width:100%}
+}
+main:has(.bd-nav) {container:voice-workspace / inline-size}
+@media(max-width:540px) {
+  .voice-filters {padding:12px}
+  .module-tabs.bd-nav {gap:12px; margin-bottom:18px}
+  .vf-segments button {padding:0 10px}
+  .bd-nav details > div {right:0}
+}
+
+@media(max-width:850px) {
+  .app-shell:has(.bd-nav) .sidebar {padding:14px 16px}
+  .app-shell:has(.bd-nav) .sidebar .brand {padding:0}
+  .app-shell:has(.bd-nav) .sidebar nav {
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:10px 0 0; gap:3px;
+  }
+  .app-shell:has(.bd-nav) .sidebar .nav-item {
+    justify-content:center; padding:7px 3px; margin:0; min-height:34px; gap:4px; font-size:13px;
+  }
+}
+
+.rec-action {border:1px solid #d0ded4; background:#f7faf8; color:#275642; padding:5px 11px; border-radius:6px; white-space:nowrap}
+.rec-action:hover {border-color:#8daa98; background:#edf4ef}
+.rec-manager textarea {width:100%; border:1px solid #cedad3; border-radius:6px; padding:8px 10px; font:inherit; resize:vertical}
+.rec-manager .rec-remove {margin-right:auto; color:#983f3b}
+
+.bd-panel .bd-tools {display:grid; grid-template-columns:minmax(185px,300px) minmax(100px,140px) minmax(100px,140px) max-content; align-items:center}
+.bd-panel .bd-tools > input:not([type=checkbox]),.bd-panel .bd-tools > select {width:100%;min-width:0}
+.bd-panel .bd-tools > label {margin:0; white-space:nowrap}
+@container voice-workspace (max-width:680px) {
+  .bd-panel .bd-tools {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bd-panel .bd-tools > input {grid-column:1 / -1}
+}

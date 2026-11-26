@@ -1,0 +1,254 @@
+.phone-mast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.phone-mast h1 {
+  margin-bottom: 2px;
+}
+.phone-mast small,
+.desk-shell small,
+.desk-ledger small {
+  color: #576d64;
+}
+.desk-shell,
+.desk-card,
+.desk-task {
+  min-width: 0;
+}
+.desk-head,
+.desk-card > header,
+.desk-line,
+.desk-filters,
+.desk-task-actions,
+.desk-upload {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.desk-head,
+.desk-card > header {
+  justify-content: space-between;
+}
+.desk-head {
+  padding: 22px 26px;
+  background: #163f35;
+  border-radius: 14px;
+  color: white;
+}
+.desk-head h2 {
+  color: inherit;
+  margin: 0;
+  letter-spacing: 0.03em;
+}
+.desk-head .desk-scope {
+  color: #d6e4da;
+}
+.desk-scope {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+.desk-scope select {
+  width: auto;
+  min-width: 80px;
+}
+.desk-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.desk-metrics button {
+  text-align: left;
+  border: 1px solid #d6e3dc;
+  border-radius: 12px;
+  background: white;
+  padding: 14px 18px;
+  color: #2d5545;
+  cursor: pointer;
+}
+.desk-metrics button span {
+  display: block;
+  font-size: 0.9rem;
+}
+.desk-metrics button strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.desk-metrics button[data-kind="已升级"] {
+  color: #913e30;
+}
+.desk-metrics button[aria-pressed="true"],
+.desk-metrics button:hover {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.desk-split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(210px, 0.85fr);
+  gap: 14px;
+  align-items: start;
+}
+.desk-card {
+  border: 1px solid #d8e2dc;
+  border-radius: 12px;
+  background: white;
+  padding: 20px;
+}
+.desk-card h3 {
+  margin: 0 0 4px;
+}
+.desk-task,
+.desk-ledger article {
+  border-top: 1px solid #e2e9e4;
+  padding: 17px 0 12px;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+.desk-grade,
+.desk-pill {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: 0.79rem;
+  border-radius: 5px;
+  background: #f7e6e1;
+  color: #853a2d;
+  font-weight: 650;
+}
+.desk-pill {
+  background: #f4eedf;
+  color: #705832;
+}
+.desk-meta,
+.desk-roster dt {
+  color: #55695d;
+  font-size: 0.9rem;
+}
+.desk-task > p {
+  margin: 9px 0;
+  font-weight: 550;
+}
+.desk-empty {
+  color: #5a6d64;
+  padding: 14px 0;
+}
+.desk-card details,
+.desk-suggest,
+.desk-notes {
+  margin-top: 12px;
+}
+.desk-card summary,
+.desk-suggest summary,
+.desk-notes summary {
+  color: #285849;
+  cursor: pointer;
+}
+.desk-task-actions button,
+.desk-card button:not(.desk-text),
+.desk-suggest button,
+.desk-notes button {
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid #c7d6ce;
+  color: #254c3f;
+  background: #f7faf8;
+  cursor: pointer;
+  font: inherit;
+}
+.desk-card button.desk-primary,
+.desk-card button[aria-pressed="true"] {
+  color: white;
+  background: #215d48;
+  border-color: #215d48;
+}
+.desk-card button:disabled {
+  opacity: 0.6;
+}
+.desk-text {
+  border: 0;
+  background: none;
+  padding: 9px 0;
+  color: #146548;
+  cursor: pointer;
+  font: inherit;
+}
+.desk-task-actions form,
+.desk-notes form,
+.desk-card form:not(.desk-upload),
+.desk-suggest form {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+}
+.desk-task-actions form {
+  width: 100%;
+}
+.desk-card form label,
+.desk-suggest label,
+.desk-notes label {
+  display: grid;
+  gap: 4px;
+}
+.desk-notes label:has([type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.desk-notes input[type="checkbox"] {
+  width: auto;
+}
+.desk-card form button,
+.desk-notes form button,
+.desk-suggest form button {
+  justify-self: start;
+}
+.desk-roster dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+}
+.desk-roster dd {
+  margin: 0;
+  text-align: right;
+}
+.desk-upload,
+.desk-filters {
+  margin-top: 14px;
+}
+.desk-ledger {
+  margin-bottom: 16px;
+}
+.desk-match {
+  margin-top: 10px;
+  padding: 12px;
+  border-left: 3px solid #bead7f;
+  background: #f7f7f1;
+}
+@media (max-width: 760px) {
+  .desk-split {
+    grid-template-columns: 1fr;
+  }
+  .desk-head,
+  .desk-card {
+    padding: 15px;
+  }
+  .desk-metrics {
+    gap: 7px;
+  }
+  .desk-metrics button {
+    padding: 10px;
+  }
+  .desk-metrics button strong {
+    font-size: 1.5rem;
+  }
+  .desk-upload input {
+    width: 100%;
+  }
+}

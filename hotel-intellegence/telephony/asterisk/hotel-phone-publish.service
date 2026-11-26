@@ -1,0 +1,12 @@
+[Unit]
+Description=Deliver completed front desk calls to HotelVoice
+RequiresMountsFor=/srv/hotel-phone-inbox
+ConditionPathIsMountPoint=/srv/hotel-phone-inbox
+
+[Service]
+Type=oneshot
+User=asterisk
+Group=asterisk
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/libexec/hotel-phone/publish.py /var/spool/asterisk/hotel-phone /srv/hotel-phone-inbox
+NoNewPrivileges=true
