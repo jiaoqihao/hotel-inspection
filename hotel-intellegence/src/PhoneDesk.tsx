@@ -121,7 +121,7 @@ function AlertActions({
   const [mode, set] = useState("");
   const run = (name: string, recipient = "", note = "") =>
     action.submit(
-      "/api/phone/duty/" + t.call_id,
+      "api/phone/duty/" + t.call_id,
       { revision: t.revision, action: name, recipient, note },
       "值班待办已更新",
     );
@@ -189,7 +189,7 @@ export function DutyDesk({
 }: Props & ScopeProps) {
   const [bucket, filter] = useState("全部");
   const a = useAction(save),
-    { data, error } = useFeed<Board>("/api/phone/duty?test=" + test, a.version);
+    { data, error } = useFeed<Board>("api/phone/duty?test=" + test, a.version);
   const rows = data?.rows || [],
     waiting = rows.filter((t) => t.state === "待接手").length;
   return (
@@ -309,7 +309,7 @@ export function DutyDesk({
                     e.preventDefault();
                     const f = new FormData(e.currentTarget);
                     void a.submit(
-                      "/api/phone/duty",
+                      "api/phone/duty",
                       {
                         primary_name: f.get("primary"),
                         backup_name: f.get("backup"),
@@ -383,7 +383,7 @@ export function LedgerDesk({
     [offset, page] = useState(0);
   const a = useAction(save),
     { data, error } = useFeed<Ledger>(
-      "/api/phone/ledger?" +
+      "api/phone/ledger?" +
         new URLSearchParams({
           test: String(test),
           status,
@@ -422,7 +422,7 @@ export function LedgerDesk({
           const f = new FormData(e.currentTarget);
           f.set("test", String(test));
           page(0);
-          void a.submit("/api/phone/reconcile", f, "话单已核对");
+          void a.submit("api/phone/reconcile", f, "话单已核对");
         }}
       >
         <label>
@@ -488,7 +488,7 @@ export function LedgerDesk({
               onSubmit={(e) => {
                 e.preventDefault();
                 void a.submit(
-                  "/api/phone/ledger/" + r.id,
+                  "api/phone/ledger/" + r.id,
                   {
                     reason: r.reason,
                     note: new FormData(e.currentTarget).get("note"),
@@ -560,7 +560,7 @@ export function ShiftNotes({
           const f = new FormData(e.currentTarget);
           const when = String(f.get("when") || "");
           await a.submit(
-            "/api/phone/orders/" + o.id + "/follow",
+            "api/phone/orders/" + o.id + "/follow",
             {
               revision: o.desk_rev,
               claim: f.has("claim"),
@@ -648,7 +648,7 @@ export function Suggestions({
           try {
             list(
               await request<Candidate[]>(
-                "/api/phone/items/" +
+                "api/phone/items/" +
                   item +
                   "/suggestions?room=" +
                   encodeURIComponent(input.trim()),
@@ -694,7 +694,7 @@ export function Suggestions({
             onSubmit={async (e) => {
               e.preventDefault();
               await a.submit(
-                "/api/phone/items/" + item + "/link",
+                "api/phone/items/" + item + "/link",
                 {
                   order: r.id,
                   reopen: r.state === "已关闭",

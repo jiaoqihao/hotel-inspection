@@ -73,10 +73,10 @@ export function PhoneReports({
     const refresh = async () => {
       try {
         const [r, details] = await Promise.all([
-          request<Report>("/api/phone/reports?" + params),
+          request<Report>("api/phone/reports?" + params),
           metric
             ? request<{ rows: Observation[] }>(
-                "/api/phone/reports?" +
+                "api/phone/reports?" +
                   params +
                   "&metric=" +
                   encodeURIComponent(metric),
@@ -202,7 +202,7 @@ export function PhoneReports({
               {canExport && (
                 <a
                   href={
-                    "/api/phone/reports/export?" +
+                    "api/phone/reports/export?" +
                     params +
                     "&metric=" +
                     encodeURIComponent(metric)

@@ -217,7 +217,7 @@ export function BatchImport({
         pending.map(async (r) => {
           try {
             const call = await request<{ status: string; error: string }>(
-              "/api/phone/calls/" + r.id,
+              "api/phone/calls/" + r.id,
             );
             return [
               r.id,
@@ -255,7 +255,7 @@ export function BatchImport({
         shared.set("file", file);
         try {
           const r = await request<{ id: string; duplicate: boolean }>(
-            "/api/phone/calls",
+            "api/phone/calls",
             {
               method: "POST",
               headers: { "x-local-token": token },
@@ -434,7 +434,7 @@ export function ReviewPanel({
   }
   if (d.status !== "已转写") return null;
   const a = d.analysis,
-    base = "/api/phone/calls/" + d.id;
+    base = "api/phone/calls/" + d.id;
   return (
     <section className="phone-analysis">
       <header>

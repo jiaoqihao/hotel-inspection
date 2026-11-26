@@ -8,7 +8,7 @@ type Attempt = {name:string; started:number; outcome:string; job:string|null};
 type Group = { gesture?:{person:number; seconds:number; style:string}; frames: {file: string; role?:string; seconds: number | null}[]; findings: {name: string; status: string; detail: string; level: string}[] };
 type Report = Summary & {kind: string; error: string; groups: Group[]; model: string; reviewNote?: string; gestureCount?:number; gestureVersion?:number; sourceJobId?: string; recheckId?: string; retestedAt?: string; retestError?: string};
 type Setup = {poseInstalled?:boolean; installed: boolean; profiles: Record<string,string[]>; model: string};
-const base = '/api/vision';
+const base = 'api/vision';
 const stamp = (s: number | null) => s === null ? '输入图片' : `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5,'0')}`;
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(base + path, init);
@@ -85,7 +85,7 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
     let timer: ReturnType<typeof setTimeout>;
     async function refreshHistory(){
       try {
-        const response=await fetch('/api/patrol');
+        const response=await fetch('api/patrol');
         if(!response.ok)throw Error();
         const result=await response.json();
         if(active){setHistory(result.history);setHistoryOffline(false);}

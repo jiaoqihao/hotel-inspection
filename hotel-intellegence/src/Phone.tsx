@@ -187,7 +187,7 @@ export default function Phone({
     async function pollHealth() {
       try {
         const result =
-          await request<NonNullable<typeof health>>("/api/phone/health");
+          await request<NonNullable<typeof health>>("api/phone/health");
         if (active) setHealth(result);
       } catch {
         if (active) setHealth(null);
@@ -207,20 +207,20 @@ export default function Phone({
     const refresh = async () => {
       try {
         if (["orders", "overdue", "handover"].includes(tab)) {
-          const v = await request<Order[]>("/api/phone/orders");
+          const v = await request<Order[]>("api/phone/orders");
           if (alive) {
             setOrders(v);
             setOrderError("");
           }
         } else if (tab === "extensions") {
-          const v = await request<Extension[]>("/api/phone/extensions");
+          const v = await request<Extension[]>("api/phone/extensions");
           if (alive) setExt(v);
         } else if (selected) {
-          const v = await request<Detail>("/api/phone/calls/" + selected);
+          const v = await request<Detail>("api/phone/calls/" + selected);
           if (alive) {
             setDetail(v);
             if (v.alert && !v.alert.first_read && v.alert.state !== "已排除") {
-              await mutate("/api/phone/calls/" + selected + "/read");
+              await mutate("api/phone/calls/" + selected + "/read");
             }
           }
         } else if (["calls", "pending", "alerts"].includes(tab)) {
@@ -229,7 +229,7 @@ export default function Phone({
           if (tab === "alerts") params.set("alerts", "true");
           if (tab === "pending") params.set("pending", "true");
           const result = await request<{ total: number; rows: CallRecord[] }>(
-            "/api/phone/register?" + params,
+            "api/phone/register?" + params,
           );
           if (alive) {
             if (offset > 0 && offset >= result.total) {
@@ -476,7 +476,7 @@ export default function Phone({
                 e.preventDefault();
                 const v = values(e.currentTarget);
                 void act(
-                  () => mutate("/api/phone/extensions", v, "PUT"),
+                  () => mutate("api/phone/extensions", v, "PUT"),
                   "分机映射已保存",
                 );
               }}
@@ -541,7 +541,7 @@ export default function Phone({
                 act(
                   () =>
                     mutate(
-                      "/api/phone/calls/" +
+                      "api/phone/calls/" +
                         c.id +
                         "/favorite?enabled=" +
                         !c.favorite,
@@ -601,7 +601,7 @@ export default function Phone({
                   </>
                 )}
               {supervisor && (
-                <a href={"/api/phone/calls/" + selected + "/export"}>
+                <a href={"api/phone/calls/" + selected + "/export"}>
                   导出通话报告
                 </a>
               )}
@@ -639,7 +639,7 @@ export default function Phone({
                 controls
                 ref={player}
                 onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
-                src={"/api/phone/calls/" + selected + "/audio"}
+                src={"api/phone/calls/" + selected + "/audio"}
               />
               <div className="phone-options">
                 <button
@@ -688,7 +688,7 @@ export default function Phone({
                 disabled={busy || !token}
                 onClick={() =>
                   act(
-                    () => mutate("/api/phone/calls/" + selected + "/retry"),
+                    () => mutate("api/phone/calls/" + selected + "/retry"),
                     "已重新排队",
                   )
                 }
@@ -776,7 +776,7 @@ export default function Phone({
                             const v = values(e.currentTarget);
                             void act(
                               () =>
-                                mutate("/api/phone/items/" + i.id + "/link", {
+                                mutate("api/phone/items/" + i.id + "/link", {
                                   order: Number(v.order),
                                   note: v.note,
                                 }),
@@ -802,7 +802,7 @@ export default function Phone({
                           void act(
                             () =>
                               mutate(
-                                "/api/phone/items/" + i.id + "/dispatch",
+                                "api/phone/items/" + i.id + "/dispatch",
                                 v,
                               ),
                             "已派单",
@@ -830,7 +830,7 @@ export default function Phone({
                           onClick={() =>
                             act(
                               () =>
-                                mutate("/api/phone/items/" + i.id + "/dismiss"),
+                                mutate("api/phone/items/" + i.id + "/dismiss"),
                               "已忽略",
                             )
                           }
@@ -851,7 +851,7 @@ export default function Phone({
                         void act(
                           () =>
                             mutate(
-                              "/api/phone/calls/" + selected + "/items",
+                              "api/phone/calls/" + selected + "/items",
                               v,
                             ),
                           "已添加待确认事项",
@@ -892,7 +892,7 @@ export default function Phone({
           save={mutate}
           transition={(id, body) =>
             void act(
-              () => mutate("/api/phone/orders/" + id, body),
+              () => mutate("api/phone/orders/" + id, body),
               "工单已更新",
             )
           }

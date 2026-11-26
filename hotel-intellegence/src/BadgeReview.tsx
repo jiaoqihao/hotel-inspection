@@ -31,10 +31,10 @@ export function Customers({api,record,onLink,onEvidence,notify,revision=0,device
   const [name,setName]=useState('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const path='/api/badge/customers';
+  const path='api/badge/customers';
   useEffect(()=>{let live=true; setPeople([]); setError(''); api(path,'GET').then(p=>{if(live)setPeople(p)}).catch(e=>{if(live)setError(e.message)});return()=>{live=false}},[record?.id,revision]);
   async function link(id:string){
-    if(record && onLink) onLink(await api('/api/records/'+record.id+'/customer','PATCH',{customerId:id||null}));
+    if(record && onLink) onLink(await api('api/records/'+record.id+'/customer','PATCH',{customerId:id||null}));
   }
   async function change(action:()=>Promise<void>){
     setBusy(true);

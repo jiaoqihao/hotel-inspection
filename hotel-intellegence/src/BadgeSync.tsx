@@ -10,7 +10,7 @@ type Signal = {group:string;detail:string;heartbeat:string|null;battery:number|n
 type Snapshot = {states:Record<number,Signal>;updated:string|null;error:string};
 type Api = (path:string,method?:string,body?:unknown)=>Promise<any>;
 type Recording = {id:string;deviceId?:number;badge?:string;filename:string;recordedAt?:string;createdAt:string};
-const base='/api/badge/devices';
+const base='api/badge/devices';
 const types:Kind[]=['挂牌','胸牌'];
 const emptyDraft=(number='',source:Kind='挂牌'):Draft=>({number,source,name:'',position:'',test:false});
 const stamp=(value?:string|null)=>value ? new Date(value).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
@@ -60,9 +60,9 @@ function AddUnits({known,api,finish,close}:{known:Unit[];api:Api;finish:(r:Regis
 
 function Connection({api,close,saved}:{api:Api;close:()=>void;saved:()=>void}) {
   const [app,setApp]=useState(''),[secret,setSecret]=useState(''),[enabled,setEnabled]=useState(false),[error,setError]=useState(''),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
-  useEffect(()=>{let live=true;request<{appId:string;enabled:boolean}>('/api/badge/sync').then(s=>{if(live){setApp(s.appId);setEnabled(s.enabled);setReady(true)}}).catch(e=>live&&setError(e.message));return()=>{live=false}},[]);
+  useEffect(()=>{let live=true;request<{appId:string;enabled:boolean}>('api/badge/sync').then(s=>{if(live){setApp(s.appId);setEnabled(s.enabled);setReady(true)}}).catch(e=>live&&setError(e.message));return()=>{live=false}},[]);
   async function action(pause:boolean) {
-    setBusy(true);try{if(pause)await api('/api/badge/sync/pause');else await api('/api/badge/sync','PUT',{appId:app.trim(),secret:secret||null});saved()}catch(e){setError((e as Error).message)}finally{setBusy(false)}
+    setBusy(true);try{if(pause)await api('api/badge/sync/pause');else await api('api/badge/sync','PUT',{appId:app.trim(),secret:secret||null});saved()}catch(e){setError((e as Error).message)}finally{setBusy(false)}
   }
   return <Dialog title="平台连接" close={close}><form onSubmit={e=>{e.preventDefault();action(false)}}><label>悦航益 AppId<input value={app} required onChange={e=>setApp(e.target.value)}/></label>
     <label>AppSecret<input type="password" autoComplete="new-password" value={secret} placeholder="沿用当前密钥可留空" onChange={e=>setSecret(e.target.value)}/></label>
