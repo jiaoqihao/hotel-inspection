@@ -15,6 +15,7 @@ CHECK = '仪容仪表'
 NO_EVENT = '未检测到符合条件的举手'
 TURN_NO_EVENT = '未检测到完整转身'
 SAMPLE_INTERVAL = .25
+MAX_TRACK_GAP = 1.0
 TURN_SECONDS = 12
 
 
@@ -195,25 +196,53 @@ class Track:
     pending: Turn | None = None
 
 
+def track_distance(previous, obs, size):
+    dx = abs(obs.center[0] - previous.center[0])
+    dy = abs(obs.center[1] - previous.center[1])
+    if obs.shoes and previous.shoes:
+        # Shoulder-to-foot height remains comparable through a rotation.
+        # MediaPipe shoulder depth (and hence 3-D width) jumps in profile.
+        h1 = obs.shoes[3] - obs.center[1]
+        h2 = previous.shoes[3] - previous.center[1]
+        height = min(h1, h2)
+        # A profile can shift the estimated shoulder centre as the far arm disappears.
+        profile = previous.view in ('左侧', '右侧') or obs.view in ('左侧', '右侧')
+        max_vertical = .22 if profile else .10
+        if height <= .55 * max(h1, h2) or dy > max_vertical * height:
+            return None
+        distance = hypot(dx * size[0] / size[1], dy)
+        return distance / height if distance < .32 * height else None
+    # Keep partial observations associated so clipping cancels a turn.
+    distance = hypot(dx, dy)
+    scale = max(obs.width, previous.width)
+    if distance < scale * .8 and min(obs.width, previous.width) > scale * .55:
+        return distance / scale
+    return None
+
+
 class Gestures:
-    def __init__(self):
+    def __init__(self, progress=None):
+        self.progress = progress
         self.tracks = {}
         self.serial = 0
 
     def step(self, stamp, image, observations):
+        def report(message):
+            if self.progress:
+                self.progress(stamp, message)
+
         def pixels(region):
             return tuple(round(value*scale) for value,scale in zip(region,image.size*2))
 
         completed = []
         candidates = []
         for key, track in self.tracks.items():
-            if stamp - track.seen > .75:
+            if stamp - track.seen > MAX_TRACK_GAP:
                 continue
             for i, obs in enumerate(observations):
-                distance = hypot(*(a-b for a,b in zip(obs.center, track.obs.center)))
-                scale = max(obs.width, track.obs.width)
-                if distance < scale * .8 and min(obs.width, track.obs.width) > scale * .55:
-                    candidates.append((distance / scale, key, i))
+                distance = track_distance(track.obs, obs, image.size)
+                if distance is not None:
+                    candidates.append((distance, key, i))
         # If multiple people can match the same observation (or vice versa), discard
         # their partial rotations before association so no one can finish another turn.
         per_track = Counter(key for _,key,i in candidates)
@@ -234,7 +263,9 @@ class Gestures:
             else:
                 key = matched[i]
             track = self.tracks[key]
-            if key in ambiguous or stamp-track.seen > .55:
+            if key in ambiguous:
+                if track.pending:
+                    report('转身中断，多个人体位置重叠')
                 track.pending = None
                 track.pose = ''
             if track.pose != obs.gesture or stamp - track.seen > .55:
@@ -250,8 +281,21 @@ class Gestures:
                               [('全身细节',obs.body),('下装细节',obs.legs),('鞋履细节',obs.shoes)])
                 track.pending = Turn(Event(key, stamp, frames))
                 track.latched = True
+                report('已识别全身举手，等待转身')
             if track.pending:
+                previous_angle = track.pending.angles[-1]
                 result = track.pending.advance(stamp,image,obs)
+                if result == 'cancel':
+                    if stamp - track.pending.event.stamp > TURN_SECONDS:
+                        report('转身中断，超过 12 秒')
+                    elif obs.view == 'clipped':
+                        report('转身中断，全身取景丢失')
+                    else:
+                        report('转身中断，朝向顺序不连续')
+                elif result == 'complete':
+                    report('完整转身已识别，正在生成记录')
+                elif track.pending.angles[-1] != previous_angle:
+                    report('转身已识别至' + obs.view)
                 if result == 'complete':
                     completed.append(track.pending.event)
                 if result:
@@ -260,9 +304,11 @@ class Gestures:
                 track.latched = False
         for key, track in list(self.tracks.items()):
             if track.seen != stamp:
+                if track.pending:
+                    report('转身中断，未能连续跟踪举手者')
                 track.pose = 'unknown'
                 track.pending = None
-            if stamp-track.seen > .75:
+            if stamp-track.seen > MAX_TRACK_GAP or (track.seen != stamp and not track.latched):
                 del self.tracks[key]
         return completed
 
@@ -339,11 +385,12 @@ class Detector:
             self.detail_model.close()
 
 
-def scan(source, *, stop=None, connected=None, detector_factory=Detector):
+def scan(source, *, stop=None, connected=None, progress=None, detector_factory=Detector):
     live = stop is not None
     options = dict(format='rtsp', options={'rtsp_transport':'tcp', 'allowed_media_types':'video'},
                    timeout=(5, 7)) if live else {}
-    gestures = Gestures()
+    gestures = Gestures(progress)
+    heartbeat = None
     start = None
     last = None
     live_anchor = None
@@ -384,7 +431,11 @@ def scan(source, *, stop=None, connected=None, detector_factory=Detector):
                 if last is None and connected:
                     connected()
                 last = stamp
-                yield from gestures.step(live_anchor + stamp if live else stamp, image, obs)
+                observed_at = live_anchor + stamp if live else stamp
+                if progress and (heartbeat is None or stamp - heartbeat >= 2):
+                    progress(observed_at, None)
+                    heartbeat = stamp
+                yield from gestures.step(observed_at, image, obs)
             if last is None:
                 raise ValueError('没有解码到有效画面')
             if not live and duration - last > max(1, 2 / float(stream.average_rate or 4)):

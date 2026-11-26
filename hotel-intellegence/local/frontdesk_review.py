@@ -1,4 +1,5 @@
 """Inspect one gesture target. Ask the local VLM one observable question at a time."""
+from collections import Counter
 from PIL import Image, ImageChops, ImageStat
 import base64
 import io
@@ -50,35 +51,6 @@ def garment_clauses(text, pattern):
     return '、'.join(dict.fromkeys(c.strip().removeprefix('图示参考：') for c in clauses if re.search(pattern, c)))
 
 
-def jacket_style(pictures, body_context, tie_style, hair_style):
-    jackets = []
-    for description in (tie_style, hair_style):
-        first = description.split('。', 1)[0]
-        outer = garment_clauses(first, r'外套|西装|西服|夹克|上衣')
-        jackets.append(outer or garment_clauses(first, r'领型|尖领|立领|翻领|收腰|直身|滚边'))
-    if jackets[0] == jackets[1]:
-        return '款式不明'
-    views = [pictures[0], *body_context[:1]]
-    choice = choose(views, '只识别举手者的外套款式。忽略内搭、领带、头发和性别。'
-                    f'按外套剪裁和颜色选：A={jackets[0] or "未配置"}。B={jackets[1] or "未配置"}。C=画面不足以区分或两者均不符合。',
-                    'ABC', '')
-    if choice == 'C' or not jackets['AB'.index(choice)]:
-        return '款式不明'
-    if body_context:
-        fitted = ['收腰' in jacket and '不收腰' not in jacket for jacket in jackets]
-        if choice in ('A','B') and fitted.count(True) == 1 and fitted['AB'.index(choice)]:
-            shape = choose(views, 'Is the outer jacket cut straight or shaped at the waist? '
-                           'A = clearly straight or boxy. B = fitted and tapering in at the waist. C = unclear.', 'ABC','')
-            if shape != 'B':
-                choice = 'C'
-        elif choice in ('A','B'):
-            reverse = choose(views, '只比较外套颜色与剪裁，忽略内搭、头发和领带。'
-                             f'A={jackets[1]}。B={jackets[0]}。C=无法区分或两者均不符合。', 'ABC','')
-            if reverse != {'A':'B','B':'A'}[choice]:
-                choice = 'C'
-    return {'A':'领带款','B':'扎发款','C':'款式不明'}[choice]
-
-
 def image_data(image):
     buf = io.BytesIO()
     image.convert('RGB').save(buf,format='JPEG',quality=92)
@@ -112,7 +84,8 @@ def archived_lower_views(scene_path, upper_path):
                 [('下装',pose.legs),('皮鞋',pose.shoes)]}
 
 
-def check_person(paths, tie_style, hair_style, standard, body_context=(), hair_views=()):
+def check_person(paths, standard, body_context=(), hair_views=()):
+    portraits = []
     pictures, badge_views, partial_chest = [], [], []
     for path in paths:
         with Image.open(path) as im:
@@ -123,6 +96,7 @@ def check_person(paths, tie_style, hair_style, standard, body_context=(), hair_v
             else:
                 im.thumbnail((1000, 1000))
                 picture = image_data(im)
+            portraits.append(picture)
             if exposed(im,(.33,.42,.65,.75)):
                 pictures.append(picture)
             if exposed(im,(.50,.43,.78,.68)):
@@ -131,7 +105,9 @@ def check_person(paths, tie_style, hair_style, standard, body_context=(), hair_v
                 else:
                     partial_chest.append(picture)
 
-    style = '款式不明'
+    front_views = portraits or list(body_context[:1])
+    rule = choose(front_views, '只看举手者正面头部和上身，判断本次适用的前台仪容规范。A 男士，检查领带；B 女士，检查扎发；C 人物不清楚，无法可靠区分。领带、发型和西装款式不作为选择规范的依据。', 'ABC', '') if front_views else 'C'
+    style = {'A':'男士规范', 'B':'女士规范', 'C':'适用规范待核实'}[rule]
     uniform = finding('工服', MISSING, '上身被遮挡、过暗或外套剪裁看不清。')
     if pictures:
         cut = choose(pictures, 'Inspect only the outer garment. A = clearly not a suit blazer: casual jacket, '
@@ -142,7 +118,6 @@ def check_person(paths, tie_style, hair_style, standard, body_context=(), hair_v
             uniform = finding('工服', ISSUE, '上身衣着清楚可见，未穿西装外套。')
         elif cut == 'B':
             uniform = finding('工服', OK, '可见已穿西装外套。')
-            style = jacket_style(pictures, body_context, tie_style, hair_style)
 
     badge = choose(badge_views, '仔细看外套胸前：是否有一块独立别在上衣上的矩形员工名牌？'
                    '口袋、衣服金边、扣子和压线不算名牌。'
@@ -162,14 +137,14 @@ def check_person(paths, tie_style, hair_style, standard, body_context=(), hair_v
     else:
         status, detail = MISSING, '胸前佩戴区域被遮挡或不清晰。'
     findings = [uniform, finding('胸牌',status,detail)]
-    if style == '领带款':
-        tie = choose(pictures, '检查衬衫领口。A=佩戴领带且领结在领口中央；B=清楚看到空领口，未戴领带；'
+    if style == '男士规范':
+        tie = choose(pictures or front_views, '检查衬衫领口。A=佩戴领带且领结在领口中央；B=清楚看到空领口，未戴领带；'
                      'C=领结明显歪斜或松脱；D=遮挡或细节看不清。', 'ABCD', standard)
         status, detail = {'A':(OK,'领口可见领带，领结居中。'), 'B':(ISSUE,'领口清楚可见，未戴领带。'),
                           'C':(ISSUE,'领结明显歪斜或松脱。'), 'D':(MISSING,'领口或领结细节看不清。')}[tie]
         findings.append(finding('领带',status,detail))
-    elif style == '扎发款' and '发网' in standard:
-        hair = choose([*hair_views, *pictures[:1]] if hair_views else pictures, 'Inspect only visible hair across the views of the same person. A = a bun enclosed in a visibly identifiable hairnet. '
+    elif style == '女士规范' and '发网' in standard:
+        hair = choose([*hair_views, *front_views[:1]], 'Inspect only visible hair across the views of the same person. A = a bun enclosed in a visibly identifiable hairnet. '
                       'B = long hair visibly hanging over shoulders or a clearly exposed loose ponytail. '
                       'C = clearly cropped haircut with the short ends visible at the nape. '
                       'D = hair is swept back from the face, but the bun, nape or net at the back cannot be '
@@ -181,15 +156,68 @@ def check_person(paths, tie_style, hair_style, standard, body_context=(), hair_v
                           'E':(MISSING,'头发被遮挡或发型细节看不清。'),
                           'F':(OK,'可见头发已束起或盘起，露出部分未见异常；画面未显示发网细节。')}[hair]
         findings.append(finding('扎发',status,detail))
-    elif style == '扎发款':
-        hair = choose([*hair_views, *pictures[:1]] if hair_views else pictures, 'Which describes the hair across these views? A = clearly tied back. B = clearly shorter than shoulders. '
+    elif style == '女士规范':
+        hair = choose([*hair_views, *front_views[:1]], 'Which describes the hair across these views? A = clearly tied back. B = clearly shorter than shoulders. '
                       'C = shoulder-length or longer hair clearly hanging loose. D = cannot tell.', 'ABCD', standard)
         status, detail = {'A':(OK,'可见头发已束起。'), 'B':(OK,'头发短于肩部，短发免扎。'),
                           'C':(ISSUE,'可见齐肩或更长的头发披散。'), 'D':(MISSING,'头发长度或束发状态看不清。')}[hair]
         findings.append(finding('扎发',status,detail))
     else:
-        findings.append(finding('领带或扎发', MISSING, '缺少可区分工服款式的证据，需核实适用要求。'))
+        findings.append(finding('领带或扎发', MISSING, '正面人物画面不足以可靠区分适用的男士或女士规范，请人工核实。'))
     return style, findings
+
+
+def check_shoes(views, roles):
+    # The model can mistake carpet texture or a highlight in one crop for a trainer.
+    # Inspect each view on its own and give each camera angle one vote.
+    by_angle = {}
+    visible = []
+    for i, view in enumerate(views):
+        angle = roles[i] if roles else str(i)
+        if angle in ('鞋履细节', '放手后鞋履', '正面鞋履'):
+            angle = '正面'
+        choice = choose([view], 'Which best describes the visible shoe construction? '
+                        'A = broadly leather-like footwear including business-casual lace-ups, slip-ons, loafers or dress shoes. '
+                        'B = clearly a running shoe, canvas trainer or another distinctly non-leather shoe. Laces and rubber edges alone are inconclusive. '
+                        'C = sandal, slipper or open footwear. D = part of a shoe is visible but its construction is unclear. '
+                        'E = no identifiable part of a shoe is visible.', 'ABCDE', '')
+        if choice == 'E':
+            continue
+        visible.append(view)
+        if choice != 'D':
+            by_angle.setdefault(angle, set()).add(choice)
+    if not visible:
+        return finding('皮鞋', MISSING, '画面中没有可辨认并归属于举手者的鞋部特征。')
+    votes = Counter(next(iter(choices)) for choices in by_angle.values() if len(choices) == 1)
+    choice = None
+    if votes:
+        best, count = votes.most_common(1)[0]
+        if count * 2 > sum(votes.values()):
+            choice = best
+    if choice is None and 'C' not in votes:
+        sole = choose(visible, "Inspect the sole profile of this person's shoes in the side views. "
+                      "A low-profile dress outsole with a narrow edge and low heel; B distinctly built-up athletic "
+                      "cushioning or a canvas sneaker's rubber toe cap and foxing; C outsole profile unclear.",
+                      'ABC', '')
+        choice = {'A':'A', 'B':'B', 'C':None}[sole]
+    if choice == 'B':
+        return finding('皮鞋', ISSUE, '可见明显运动鞋或其他非皮鞋结构。')
+    if choice == 'C':
+        return finding('皮鞋', ISSUE, '露出部分可辨认为凉鞋或拖鞋。')
+    if choice is None:
+        return finding('皮鞋', MISSING, '可用画面未能一致辨认鞋型或鞋底特征。')
+    condition = choose(visible, 'Inspect only the exposed shoes across views. A = clearly visible dirt or stains '
+                       'on the upper itself, distinct from shine, shadow, outsole edges and carpet. '
+                       'B = clearly light or brightly colored shoes. C = broadly dark shoes with no obvious stain '
+                       '(black, dark brown or dark navy are acceptable). D = shoe color cannot be seen.',
+                       'ABCD', '')
+    if condition == 'A':
+        return finding('皮鞋', ISSUE, '露出的鞋面上可见明显污渍。')
+    if condition == 'B':
+        return finding('皮鞋', ISSUE, '可见鞋面呈浅色或亮色，与深色皮鞋要求不符。')
+    if condition == 'D':
+        return finding('皮鞋', MISSING, '鞋面颜色没有可辨认的画面。')
+    return finding('皮鞋', OK, '露出部分符合深色皮鞋外观，未见明显污渍。')
 
 
 def check_lower_body(paths, name, standard, body_context=(), roles=()):
@@ -198,29 +226,18 @@ def check_lower_body(paths, name, standard, body_context=(), roles=()):
         with Image.open(path) as im:
             if min(im.size) < (2 if name == '皮鞋' else 32) or ImageStat.Stat(im.convert('L')).stddev[0] < 2:
                 continue
-            im.thumbnail((960,960))
-            pictures.append(image_data(im))
+            if name == '皮鞋' and im.format == 'JPEG' and max(im.size) <= 960:
+                pictures.append(encoded_image(path))
+            else:
+                im.thumbnail((960,960))
+                pictures.append(image_data(im))
             if roles:
                 labels.append(roles[index])
     if name == '皮鞋':
-        angles = '证据图顺序：'+'、'.join(labels)+'。' if labels else ''
         views = pictures or list(body_context)
         if not views:
             return finding(name, MISSING, '没有拍到可归属于举手者的鞋部画面。')
-        answer = choose(views, angles+'Inspect only the exposed footwear of the marked person. A single toe, side '
-                        'or outsole edge on one foot is enough. Use its visible shape, texture and sole profile '
-                        'even when trousers hide the rest. A = exposed features look like a formal dress shoe; '
-                        'B = athletic or casual shoe features such as a sneaker sole, mesh or canvas upper; '
-                        'C = other visibly non-dress footwear such as an open sandal; '
-                        'D = visible obvious dirt or damage on a dress shoe; '
-                        'E = no identifiable piece of the subject’s footwear is visible. '
-                        'Partial coverage alone is never E. Dark color alone is not evidence of leather.',
-                        'ABCDE','')
-        outcomes = {'A':(OK,'按露出部分的鞋型判断，外观与正装皮鞋相符。'),
-                    'B':(ISSUE,'露出的鞋部特征更符合运动鞋或休闲鞋。'),
-                    'C':(ISSUE,'露出的鞋部可辨认为其他鞋型，与正装皮鞋要求不符。'),
-                    'D':(ISSUE,'皮鞋露出部分可见明显污损。'),
-                    'E':(MISSING,'画面中没有可辨认并归属于举手者的鞋部特征。')}
+        return check_shoes(views, labels)
     else:
         unknown = '下装被遮挡或剪裁、颜色看不清。'
         requirement = garment_clauses(standard, r'下装|裤|半裙|裙装|套裙|短裙|长裙')

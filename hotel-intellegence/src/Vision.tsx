@@ -169,7 +169,12 @@ export default function Vision({token,pending,setPending,canExport=true}: {token
       {report.error && <p role="alert">{report.error}</p>}
       {report.groups.map((group,i)=><details className="vision-group" key={i} open={report.groups.length===1 || undefined}>
         <summary>{group.gesture && `举手者 ${group.gesture.person} · ${group.gesture.style} · `}{stamp(group.frames[0].seconds)}{group.frames.length>1 && ' – '+stamp(group.frames[group.frames.length-1].seconds)} · {group.findings.filter(x=>x.status==='发现异常').length} 项异常{group.findings.some(x=>x.level==='取证缺失') && '（其中 '+group.findings.filter(x=>x.level==='取证缺失').length+' 项取证缺失）'}{group.findings.some(x=>x.status==='无法判断') && ' · '+group.findings.filter(x=>x.status==='无法判断').length+' 项无法判断'}</summary>
-        <div className="vision-frames">{group.frames.map(f=><figure key={f.file}><a href={base+'/jobs/'+id+'/frames/'+f.file} target="_blank" rel="noreferrer"><img src={base+'/jobs/'+id+'/frames/'+f.file} alt={stamp(f.seconds)+' 证据图'}/></a><figcaption>{f.role} {stamp(f.seconds)}</figcaption></figure>)}</div>
+        <div className={group.gesture ? 'vision-frames gesture-overview' : 'vision-frames'}>
+          {(group.gesture ? group.frames.slice(0, 1) : group.frames).map(f=><figure key={f.file}>
+            <a href={base+'/jobs/'+id+'/frames/'+f.file} target="_blank" rel="noreferrer"><img src={base+'/jobs/'+id+'/frames/'+f.file} alt={(f.role || '证据图')+' '+stamp(f.seconds)}/></a>
+            <figcaption>{f.role} {stamp(f.seconds)}</figcaption>
+          </figure>)}
+        </div>
         {group.findings.map(f=><div className="finding" key={f.name}><strong>{f.name}</strong> <span className={'tag '+(f.status==='发现异常'?'amber':f.status==='未见异常'?'green':'neutral')}>{f.status}</span> {f.level}<p>{f.detail}</p></div>)}</details>)}
       {report.state==='已完成' && <div><label>复核与整改记录<textarea placeholder={report.reviewNote || '填写复核意见或整改结果'} value={note} maxLength={1000} onChange={e=>setNote(e.target.value)}/></label>{report.reviewNote && <p>已记录：{report.reviewNote}</p>}<div className="vision-checks">{['已确认','已标误报','待整改','已复查'].map(state=><button className="secondary small" disabled={busy} key={state} onClick={()=>action(state)}>{state}</button>)}</div></div>}</section>}
     {!id && !creating && <section className="work-card vision-ledger">

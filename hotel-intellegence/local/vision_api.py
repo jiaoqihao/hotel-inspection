@@ -140,8 +140,8 @@ def inspect_event(folder, report, event):
     tie_style, hair_style = report['tieStyle'], report['hairStyle']
     hair_views = [encoded_image(folder / f['file']) for role in ('背面头部','左侧头部','右侧头部')
                   for f in event['frames'] if f['role'] == role]
-    style, findings = check_person(crops, tie_style, hair_style, report['standard'], body, hair_views)
-    applicable = {'领带款':tie_style, '扎发款':hair_style}.get(style,'\n'.join((tie_style,hair_style)))
+    style, findings = check_person(crops, report['standard'], body, hair_views)
+    applicable = {'男士规范':tie_style, '女士规范':hair_style}.get(style,'\n'.join((tie_style,hair_style)))
     recovered = {}
     if not body and crops and not any(f['role']=='鞋履细节' for f in event['frames']):
         scenes = [f for f in event['frames'] if f['role']=='举手全景']
