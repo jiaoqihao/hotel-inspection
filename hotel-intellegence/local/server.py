@@ -15,7 +15,7 @@ import time
 import uuid
 
 import av
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import numpy as np
@@ -232,6 +232,14 @@ def reports(request:Request):
 def list_records():
     return all_records()
 
+@app.get('/api/badge/record-index')
+def badge_record_index(offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100)):
+    with connection() as db:
+        rows = db.execute("""SELECT id, data->>'$.filename' AS filename, data->>'$.status' AS status,
+            data->>'$.report.scene' AS scene, data->>'$.recordedAt' AS recordedAt,
+            data->>'$.test' AS test FROM records ORDER BY rowid DESC LIMIT ? OFFSET ?""", (limit + 1, offset)).fetchall()
+    return dict(records=[dict(r) for r in rows[:limit]], nextOffset=offset + limit if len(rows) > limit else None)
+
 @app.get('/api/records/{id}')
 def get_record(id: str):
     return record(id)
@@ -244,16 +252,16 @@ def export_record(id:str):
     return item
 
 @app.post('/api/upload')
-async def upload(file: UploadFile = File(...), employee: str = Form(''), scene: str = Form('自动识别'), note: str = Form(''), language: str = Form('zh'), diarization: bool | None = Form(None), speakerCount: int = Form(2), badge: str = Form(''), recordedAt: str = Form(''), source: str = Form('历史导入'), test: bool = Form(False)):
+async def upload(file: UploadFile = File(...), employee: str = Form(''), scene: str = Form('自动识别'), note: str = Form(''), language: str = Form('zh'), diarization: bool | None = Form(None), speakerCount: int = Form(2), badge: str = Form(''), recordedAt: str = Form(''), source: str = Form('历史导入'), test: bool = Form(False), position: str = Form('')):
     item = await run_in_threadpool(store_recording, iter(lambda: file.file.read(1024 * 1024), b''),
                                    file.filename or '', employee, scene, note, language, diarization,
-                                   speakerCount, badge, recordedAt, source, test)
+                                   speakerCount, badge, recordedAt, source, test, position=position)
     await run_in_threadpool(queue_badge_analysis)
     return record(item['id'])
 
 
 def store_recording(chunks, filename, employee, scene, note, language, diarization, speakerCount,
-                    badge, recordedAt, source, test, remote_key=None):
+                    badge, recordedAt, source, test, remote_key=None, position=''):
     extension = Path(filename).suffix.lower()
     if extension not in ('.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac', '.mp4', '.webm'):
         raise HTTPException(400, '请选择 WAV、MP3、M4A、AAC、OGG、FLAC、MP4 或 WEBM 音频')
@@ -295,26 +303,26 @@ def store_recording(chunks, filename, employee, scene, note, language, diarizati
         path.unlink(missing_ok=True)
         raise HTTPException(400, '无法读取音频，请检查文件是否损坏')
     item = {'id': id, 'filename': Path(filename).name, 'extension': extension, 'size': size, 'duration': duration, 'employee': employee.strip()[:80] or '未指定员工', 'sceneHint': scene, 'note': note[:1500], 'createdAt': datetime.now(timezone.utc).isoformat(), 'status': 'uploaded', 'progress': 0, 'segments': [], 'report': None, 'reviewed': False, 'language':language, 'diarization':diarization,'speakerCount':speakerCount,'asrRevision':3}
-    item.update(source=source if source in ('胸牌','挂牌') else '历史导入', test=bool(test), autoAnalyze=True, badge=badge.strip()[:80], recordedAt=recordedAt[:40])
+    item.update(position='前台' if position == '前台' else '', source=source if source in ('胸牌','挂牌') else '历史导入', test=bool(test), autoAnalyze=True, badge=badge.strip()[:80], recordedAt=recordedAt[:40])
     try:
         with connection() as db:
             db.execute('BEGIN IMMEDIATE')
             if remote_key:
-                device = db.execute('''SELECT d.id,d.test FROM badge_devices d JOIN badge_sync_config c ON d.app=c.app
+                device = db.execute('''SELECT d.id,d.position FROM badge_devices d JOIN badge_sync_config c ON d.app=c.app
                     WHERE d.app=? AND d.number=? AND d.enabled AND NOT d.retired AND c.enabled''',remote_key[:2]).fetchone()
                 if not device:
                     raise SyncError('设备同步已暂停')
-                item.update(deviceId=device['id'])
+                item.update(deviceId=device['id'], position=device['position'])
                 accepted = db.execute('INSERT OR IGNORE INTO badge_sync_files VALUES(?,?,?,?)', (*remote_key, id))
                 if not accepted.rowcount:
                     path.unlink(missing_ok=True)
                     return None
                 item['importedFrom'] = '悦航益'
             elif item['badge']:
-                device = db.execute('''SELECT d.id FROM badge_devices d JOIN badge_sync_config c ON d.app=c.app
+                device = db.execute('''SELECT d.id,d.position FROM badge_devices d JOIN badge_sync_config c ON d.app=c.app
                     WHERE d.number=? AND d.source=?''',(item['badge'],item['source'])).fetchone()
                 if device:
-                    item['deviceId'] = device['id']
+                    item.update(deviceId=device['id'], position=device['position'])
             stamp = badge_scripts.recording_time(recordedAt)
             if stamp and item.get('deviceId') and not employee.strip():
                 name = badge_scripts.wearer(db, item['deviceId'], stamp.date().isoformat())
@@ -417,7 +425,7 @@ def retranscribe(id: str, body: RetrySpeech):
         raise HTTPException(503,'本地声纹模型尚未就绪')
     if sum(r['status'] in ('queued','diarizing','transcribing','analyzing') for r in all_records())>=5:
         raise HTTPException(429,'队列已满，请稍后重试')
-    child={k:v for k,v in item.items() if k in ('extension','size','duration','employee','sceneHint','note','source','badge','recordedAt','test','wasMarkedTest','employeeSource','deviceId')}
+    child={k:v for k,v in item.items() if k in ('extension','size','duration','employee','sceneHint','note','source','badge','recordedAt','test','wasMarkedTest','employeeSource','deviceId','position')}
     child.update(id=uuid.uuid4().hex,filename=Path(item['filename']).stem+('-双人对话复核' if body.speakerCount==2 else '-对话复核')+item['extension'],sourceId=id,createdAt=datetime.now(timezone.utc).isoformat(),status='queued',progress=0,segments=[],report=None,reviewed=False,language=body.language,diarization=body.diarization,speakerCount=body.speakerCount,asrRevision=3)
     shutil.copyfile(AUDIO/(id+item['extension']),AUDIO/(child['id']+child['extension']))
     save(child)
@@ -507,6 +515,12 @@ def process(id):
             update(id, status='transcribing', progress=5)
             segments = transcribe(id)
         update(id, status='analyzing', progress=65)
+        # Version 5 recordings predate the upload-time position snapshot.
+        if 'position' not in item and item.get('deviceId'):
+            with connection() as db:
+                device = db.execute('SELECT position FROM badge_devices WHERE id=?', (item['deviceId'],)).fetchone()
+            item['position'] = device['position'] if device else ''
+            update(id, position=item['position'])
         report = analyze_segments(segments, item, lambda value: update(id, progress=value),
                                   lambda scenes: update(id, detectedScenes=scenes, progress=72))
         update(id, status='done', progress=100, report=report)
@@ -542,9 +556,14 @@ def deepseek_copy(id: str):
                 return json.loads(prior[0])
             ensure_queue_space(db)
             child = {k: original[k] for k in ('extension','size','duration','employee','sceneHint','note',
-                     'source','badge','recordedAt','test','wasMarkedTest','employeeSource','deviceId','language','diarization','speakerCount',
+                     'source','badge','recordedAt','test','wasMarkedTest','employeeSource','deviceId','position','language','diarization','speakerCount',
                      'asrRevision','segments','speakers','speakerTurns','quality') if k in original}
-            child.update(id=child_id, sourceId=id, deepseekSource=id, deepseekVersion=REPORT_VERSION, filename=Path(original['filename']).stem+' · DeepSeek 分析',
+            title = original['filename']
+            if original.get('deepseekSource'):
+                title = title.removesuffix(f" · DeepSeek 分析 v{original.get('deepseekVersion')}").removesuffix(' · DeepSeek 分析')
+            else:
+                title = Path(title).stem
+            child.update(id=child_id, sourceId=id, deepseekSource=id, deepseekVersion=REPORT_VERSION, filename=f'{title} · DeepSeek 分析 v{REPORT_VERSION}',
                          createdAt=datetime.now(timezone.utc).isoformat(), status='queued', progress=0, report=None, reviewed=False)
             for suffix in (original['extension'], '.play.wav'):
                 source = AUDIO / (id + suffix)

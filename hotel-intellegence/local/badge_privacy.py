@@ -1,4 +1,4 @@
-"""Build a service-only view for remote analysis; retain original media offsets locally."""
+"""Scene declarations and privacy checks for outbound daily summaries."""
 import re
 
 import requests
@@ -48,11 +48,13 @@ class UnverifiedMask(ValueError):
 
 def redact_locally(session, text):
     messages = [
-        {"role":"system", "content":REDACT_PROMPT},
+        {"role":"system", "content":REDACT_PROMPT + " 保留客人对客房、菜品的使用感受和员工询问体验的服务话术，原样复制，无需润色或补字。"},
         {"role":"user", "content":"请把婚宴清单发给赵子航。"},
         {"role":"assistant", "content":"请把婚宴清单发给＊。"},
         {"role":"user", "content":"前天心脏搭桥。"},
         {"role":"assistant", "content":"＊。"},
+        {"role":"user", "content":"您觉得这次住得怎么样？挺好的。"},
+        {"role":"assistant", "content":"您觉得这次住得怎么样？挺好的。"},
         {"role":"user", "content":text},
     ]
     try:
@@ -83,43 +85,3 @@ def retained_parts(original, masked):
         offset = pos + len(part)
         parts.append(part)
     return parts
-
-
-def safe_parts(session, text, withheld):
-    try:
-        return retained_parts(text, redact_locally(session, text))
-    except UnverifiedMask:
-        # Retry individual clauses when the local model reformats a long utterance.
-        clauses = re.findall(r"[^。！？；，,!?;\n]+[。！？；，,!?;\n]*", text)
-        if len(clauses) <= 1:
-            withheld.append(1)
-            return []
-        return [part for clause in clauses for part in safe_parts(session, clause, withheld)]
-
-
-def redacted_turns(segments, withheld):
-    shared = False
-    with requests.Session() as session:
-        session.trust_env = False  # Local transcripts must never go through an environment proxy.
-        for segment in segments:
-            parts = []
-            # Keep neighboring clauses together unless a private clause or size limit intervenes.
-            pending = ""
-            for clause in re.findall(r"[^。！？；，,!?;\n]+[。！？；，,!?;\n]*", segment["text"]):
-                private = PRIVATE.search(clause) or PRIVATE_NUMBER.search(clause)
-                if pending and (private or len(pending) + len(clause) > 500):
-                    parts.extend(safe_parts(session, pending, withheld))
-                    pending = ""
-                if private or not WORDS.search(clause):
-                    continue
-                while len(clause) > 500:
-                    piece, clause = clause[:500], clause[500:]
-                    parts.extend(safe_parts(session, piece, withheld))
-                pending += clause
-            if pending:
-                parts.extend(safe_parts(session, pending, withheld))
-            if parts:
-                shared = True
-                yield segment["id"], parts
-    if withheld and not shared:
-        raise ValueError("本机脱敏结果未能匹配原话，请回听或用已有转写重试。")

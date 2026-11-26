@@ -109,6 +109,8 @@ class BadgeArchiveTests(unittest.TestCase):
                                devices=[dict(number='TEST-001', source='挂牌')], test=True)
         with patch('local.badge_sync.vendor', side_effect=[{'accessToken':'fixture'}, {'items':[]}]):
             sync.configure(config)
+        with server.connection() as db:
+            db.execute("UPDATE badge_devices SET position='前台' WHERE number='TEST-001'")
         row = sync.settings()
         self.assertNotIn(b'synthetic-secret', row['secret'])
         out = BytesIO()
@@ -132,6 +134,7 @@ class BadgeArchiveTests(unittest.TestCase):
             sync.sync_device(row, device, 'synthetic-token')
             self.assertEqual(get.call_count, 2)
             saved = next(r for r in server.all_records() if r.get('importedFrom'))
+            self.assertEqual(saved['position'], '前台')
             self.assertFalse(saved['test'])
             self.assertEqual((saved['source'], saved['badge'], saved['recordedAt']),
                              ('挂牌', 'TEST-001', item['startTime']))
@@ -249,7 +252,9 @@ class BadgeArchiveTests(unittest.TestCase):
     def test_historical_copy_and_retry_reuse_transcript(self):
         from local.badge_analysis import AnalysisError
         self.add("a", "销售沟通", "请明天给我报价。")
-        server.update("a", reviewed=True)
+        with server.connection() as db:
+            device = db.execute("INSERT INTO badge_devices(app,number,source,position,test) VALUES('test','OLD','挂牌','前台',1)").lastrowid
+        server.update("a", reviewed=True, deviceId=device, report=dict(server.record("a")["report"], reportVersion=5))
         original = server.record("a")
         (server.AUDIO / "a.mp3").write_bytes(b"synthetic-audio")
         with patch.object(server.POOL, "submit") as submit:
@@ -274,8 +279,20 @@ class BadgeArchiveTests(unittest.TestCase):
             server.process(key)
             asr.assert_not_called()
         self.assertEqual(server.record(key)["status"], "done")
+        self.assertEqual(server.record(key)["position"], "前台")
         self.assertEqual(server.record("a"), original)
         self.assertEqual(self.client.get(f"/api/records/{key}/audio").content, b"synthetic-audio")
+
+    def test_record_index_has_bounded_metadata_only(self):
+        self.add("sample", "餐厅服务", "这是一条测试录音。")
+        path = "/api/badge/record-index"
+        index = self.client.get(path, params={"limit": 1}).json()
+        self.assertEqual(index["records"][0]["id"], "sample")
+        self.assertNotIn("segments", index["records"][0])
+        self.assertNotIn("report", index["records"][0])
+        self.assertEqual(index["nextOffset"], 1)
+        self.assertEqual(self.client.get(path, params={"offset": 1}).json()["records"][0]["id"], "legacy")
+        self.assertEqual(self.client.get(path, params={"limit": 101}).status_code, 422)
 
     def test_old_empty_report_can_be_retried_in_place_once(self):
         self.add("empty", "销售沟通", "我定了一间房。")
@@ -307,7 +324,7 @@ class BadgeArchiveTests(unittest.TestCase):
             self.assertTrue(finish.wait(8))
             return [dict(scene="会议",**{k:[] for k in FIELDS})]
         url="/api/records/scene-first"
-        with patch("local.badge_privacy.redact_locally",side_effect=lambda _,text:text), patch("local.badge_analysis.classify",return_value=["会议"]), patch("local.badge_analysis.request_reports",side_effect=detail), ThreadPoolExecutor(1) as pool:
+        with patch("local.badge_analysis.classify",return_value=["会议"]), patch("local.badge_analysis.request_reports",side_effect=detail), ThreadPoolExecutor(1) as pool:
             job=pool.submit(server.process,"scene-first")
             try:
                 self.assertTrue(started.wait(8))

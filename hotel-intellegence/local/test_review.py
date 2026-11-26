@@ -10,9 +10,6 @@ from local.rules import rule_report
 
 class EvidenceTests(unittest.TestCase):
     def setUp(self):
-        redaction = patch("local.badge_privacy.redact_locally", side_effect=lambda session, text: text.replace("王某某", "＊"))
-        self.redact = redaction.start()
-        self.addCleanup(redaction.stop)
         self.segments = [{'id':0,'start':0,'end':20,'text':'您好，欢迎光临。请问有没有忌口？我去厨房确认出餐进度。'}]
 
     def test_fabricated_evidence_is_discarded(self):
@@ -65,26 +62,31 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(report['mode'],'deepseek')
         self.assertEqual(report['conclusions'][0]['evidence'][0]['start'],0)
 
-    def test_private_details_never_reach_either_remote_stage_or_evidence(self):
-        from local.badge_privacy import redacted_turns
-        words="我叫王某某，我的工资是三万，婚宴服务联系人王某某手机号13812345678。请把婚宴报价发给王某某。"
-        original=[dict(id=4,start=10,text=words)]
-        excerpts=list(redacted_turns(original, []))
-        self.assertTrue(excerpts)
-        sent=[]
-        def respond(data,prompt,field,max_tokens):
-            sent.append(data)
-            if field=="scenes": return ["销售沟通"]
-            return [dict(scene="销售沟通",**{k:([dict(value="沟通婚宴报价",evidence=[0])] if k=="conclusions" else []) for k in FIELDS})]
-        with patch("local.badge_analysis.request_json",side_effect=respond):
-            result=analyze_segments(original,{})
-        self.assertEqual(len(sent),2)
-        for private in ("王某某","13812345678","工资","三万","联系人"):
-            self.assertNotIn(private,str(sent))
-            self.assertNotIn(private,str(result))
-        for ev in result["conclusions"][0]["evidence"]:
-            self.assertIn(ev["quote"],words)
-            self.assertEqual(ev["start"],10)
+    def test_original_turns_reach_all_three_stages_without_rewriting(self):
+        words = ["我叫测试甲，房号是808，联系方式是13800000000。我定了一间房。",
+                 "好的好的，现在就把房卡给你。"]
+        segments = [dict(id=i, start=t, text=w, speakerId="same") for i, (t, w) in
+                    enumerate(zip([4.216, 7.135, 9.97], words + ["。"]))]
+        stages = []
+        def respond(data, prompt, field, max_tokens):
+            stages.append(field)
+            self.assertEqual([row["text"] for row in data["segments"]], words)
+            if field == "scenes":
+                return ["销售沟通"]
+            if field == "reports":
+                raw = dict(scene="销售沟通", **{k: [] for k in FIELDS})
+                raw["conclusions"] = [dict(value="客人说明已预订，前台表示将交付房卡。", evidence=[0, 1])]
+                return [raw]
+            return [dict(flow="入住", ref=0, checks=[dict(name="交付房卡、证件及单据", result="部分体现",
+                         ref=1, quote="现在就把房卡给你")])]
+        with patch("local.badge_privacy.redact_locally", side_effect=AssertionError("录音分析不应改写原文")), patch(
+                "local.badge_analysis.request_json", side_effect=respond):
+            report = analyze_segments(segments, dict(source="挂牌", position="前台", test=True))
+        self.assertEqual(stages, ["scenes", "reports", "workflows"])
+        self.assertEqual([e["start"] for e in report["conclusions"][0]["evidence"]], [4.216, 7.135])
+        checks = {r["name"]:r for r in report["checks"]}
+        self.assertEqual(checks["交付房卡、证件及单据"]["status"], "部分体现")
+        self.assertEqual(checks["询问是否有预订"]["status"], "证据不足")
 
     def test_classification_receives_conversation_without_business_keywords(self):
         turns = ["我定了一间房。", "好的好的，现在就把房卡给你。", "嗯，那就给我这个吧。"]
@@ -112,28 +114,14 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(report["scenes"],[])
         self.assertEqual(report["sceneSource"],"业务依据不足")
 
-    def test_unverified_redaction_stops_before_deepseek(self):
-        self.redact.side_effect=lambda *_: "模型改写了录音。"
-        with patch("local.badge_analysis.request_json") as remote, self.assertRaisesRegex(ValueError,"脱敏"):
-            analyze_segments(self.segments,{})
-        remote.assert_not_called()
-
-    def test_malformed_private_clause_does_not_block_another_turn(self):
-        self.redact.side_effect=lambda _,text: "脱敏改写" if "片段甲" in text else text
-        segments=[dict(id=0,start=0,text="片段甲。"),dict(id=1,start=3,text="现在就把房卡给你。")]
-        with patch("local.badge_analysis.request_json",return_value=["销售沟通"]) as classify, patch("local.badge_analysis.request_reports",return_value=[dict(scene="销售沟通",**{k:[] for k in FIELDS})]):
-            report=analyze_segments(segments,{})
-        self.assertEqual(report["unverifiedClauses"],1)
-        self.assertEqual(classify.call_args.args[0]["segments"],[{"ref":0,"text":"现在就把房卡给你。"}])
-
-    def test_private_chat_is_not_summarized(self):
-        with patch("local.badge_analysis.classify") as classify, patch("local.badge_analysis.request_reports") as report:
-            result=analyze_segments([dict(id=0,start=0,text="我妈妈生病了。我的工资涨了。")],{})
-        classify.assert_not_called()
-        report.assert_not_called()
+    def test_private_chat_is_classified_from_verbatim_text(self):
+        text = "我妈妈生病了。我的工资涨了。"
+        with patch("local.badge_analysis.classify", return_value=[]) as classify, patch("local.badge_analysis.request_reports") as detail:
+            result = analyze_segments([dict(id=0, start=0, text=text)], {})
+        self.assertEqual(classify.call_args.args[0], [{"ref":0, "text":text}])
+        detail.assert_not_called()
         self.assertIsNone(result["scene"])
-        self.assertEqual(result["todos"],[])
-        self.assertNotIn("工资",str(result))
+        self.assertEqual(result["todos"], [])
 
     def test_declared_short_scenes_and_misheard_canteen(self):
         for text, expected in [
@@ -210,6 +198,56 @@ class EvidenceTests(unittest.TestCase):
             result=analyze_segments([dict(self.segments[0],overlap=True)],{})
         call.assert_not_called()
         self.assertEqual(result['mode'],'noEvidence')
+
+    def test_desk_report_grounds_model_verdicts_and_keeps_applicable_standards(self):
+        segments = [
+            dict(id=8, start=0, text="我今天要走啦。", speakerId="g"),
+            dict(id=9, start=3, text="昨晚休息得还舒心吗？", speakerId="s"),
+            dict(id=10, start=6, text="一路顺风。", needsReview=True),
+        ]
+        def remote(data, prompt, field, limit):
+            if field == "scenes":
+                return ["销售沟通"]
+            if field == "reports":
+                return [dict(scene="销售沟通", **{k: [] for k in FIELDS})]
+            self.assertEqual(field, "workflows")
+            self.assertEqual(data["segments"][0]["role"], "客人")
+            self.assertEqual(len(data["segments"]), 2)
+            self.assertNotIn("询问是否需要停车券", data["standards"]["退房"])
+            return [dict(flow="退房", ref=0, checks=[
+                dict(name="询问入住体验", result="符合", ref=1, quote="昨晚休息得还舒心吗"),
+                dict(name="问候客人", result="符合", ref=0, quote="今天要走"),
+                dict(name="邀请点评并告知规则", result="符合", ref=1, quote="给个好评"),
+                dict(name="询问是否需要停车券", result="疑似偏差", ref=1, quote="昨晚"),
+            ])]
+        item = dict(position="前台", source="挂牌", test=True, speakers={"g": dict(source="manual", name="客人")})
+        with patch.dict(os.environ, HOTEL_STORE_NAME="北京万枫"), patch("local.badge_analysis.request_json", side_effect=remote):
+            result = analyze_segments(segments, item)
+        rows = {r["name"]: r for r in result["checks"]}
+        self.assertEqual(len(rows), 7)
+        self.assertEqual(rows["询问入住体验"]["evidence"], [dict(segment=9, start=3, quote="昨晚休息得还舒心吗")])
+        self.assertEqual(rows["询问入住体验"]["status"], "符合")
+        self.assertEqual(rows["问候客人"]["status"], "证据不足")
+        self.assertEqual(rows["邀请点评并告知规则"]["status"], "证据不足")
+        self.assertEqual(rows["询问是否需要停车券"]["status"], "不适用")
+
+    def test_frontdesk_standards_are_scoped_by_role_and_service(self):
+        from local.frontdesk_scripts import STANDARDS, condition
+        self.assertEqual(len(STANDARDS["入住"]), 15)
+        self.assertEqual(condition("识别会员", "")[0], "门店待确认")
+        self.assertEqual(condition("识别会员", "园区万枫")[0], "")
+        self.assertEqual(condition("识别会员", "其他店")[0], "不适用")
+        self.assertEqual(condition("询问对房间的要求", "园区万枫")[0], "暂不要求")
+        report = dict(scene="销售沟通", **{k: [] for k in FIELDS})
+        segments = [dict(id=0, start=0, text="这是入住和退房培训时用的案例。")]
+        with (patch("local.badge_analysis.classify", return_value=["销售沟通"]),
+              patch("local.badge_analysis.request_reports", return_value=[report]),
+              patch("local.badge_analysis.request_json", return_value=[]) as model):
+            for item in ({}, {"source":"胸牌", "position":"餐厅"}, {"source":"电话", "position":"前台"}):
+                self.assertFalse(analyze_segments(segments, item)["frontDeskStandard"])
+            model.assert_not_called()
+            self.assertFalse(analyze_segments(segments, {"source":"胸牌", "position":"前台"})["checks"])
+            model.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
